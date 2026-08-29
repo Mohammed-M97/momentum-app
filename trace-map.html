@@ -1,0 +1,1020 @@
+<title>Momentum — Signal Trace</title>
+
+<style>
+  /* ============================================================
+     Committed dark instrument-panel palette. This page is
+     deliberately single-theme, so every surface paints its own
+     background — html AND body — and no color is ever declared
+     only inside a media query.
+     ============================================================ */
+  :root {
+    color-scheme: dark;
+
+    --void:   #0a0e13;
+    --panel:  #111821;
+    --panel2: #161f2a;
+    --line:   #1f2b38;
+    --line2:  #2b3a4a;
+
+    --ink:    #dfe7f0;
+    --dim:    #8ba0b4;
+    --faint:  #5f7386;
+
+    /* lane colors — the whole page is keyed to these five */
+    --ui:      #c084fc;
+    --brain:   #fbbf24;
+    --rules:   #22d3ee;
+    --persist: #4ade80;
+    --disk:    #94a3b8;
+    --alarm:   #fb7185;
+
+    --ui-bg:      rgba(192,132,252,.10);
+    --brain-bg:   rgba(251,191,36,.10);
+    --rules-bg:   rgba(34,211,238,.10);
+    --persist-bg: rgba(74,222,128,.10);
+    --disk-bg:    rgba(148,163,184,.10);
+    --alarm-bg:   rgba(251,113,133,.10);
+
+    --sans: "Segoe UI Variable Display", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", "Cascadia Code", Consolas, "SF Mono", Menlo, monospace;
+
+    --wrap: 1080px;
+  }
+
+  html { background: var(--void); }
+
+  body {
+    background: var(--void);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0 20px 120px;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; }
+
+  /* ---------- type scale ---------- */
+  h1, h2, h3 { text-wrap: balance; margin: 0; letter-spacing: -.02em; }
+  h1 { font-size: clamp(2rem, 5vw, 3.1rem); font-weight: 700; line-height: 1.08; }
+  h2 { font-size: clamp(1.35rem, 3vw, 1.85rem); font-weight: 700; }
+  h3 { font-size: 1.05rem; font-weight: 650; letter-spacing: -.01em; }
+  p  { margin: 0; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .16em;
+    color: var(--faint);
+    margin: 0;
+  }
+  .lede { color: var(--dim); font-size: 1.05rem; max-width: 64ch; }
+  .note { color: var(--dim); font-size: .93rem; }
+
+  code, .file {
+    font-family: var(--mono);
+    font-size: .85em;
+  }
+  .file {
+    color: var(--dim);
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 6px;
+    white-space: nowrap;
+    font-size: .78rem;
+  }
+
+  /* ---------- header ---------- */
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 72px 0 40px;
+    border-bottom: 1px solid var(--line);
+  }
+  .masthead h1 span { color: var(--brain); }
+  .method {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: .8rem;
+    color: var(--dim);
+    margin-top: 4px;
+  }
+  .method b { color: var(--ink); font-weight: 600; }
+  .method .arrow { color: var(--faint); }
+
+  /* ---------- sections ---------- */
+  section { padding-top: 68px; }
+  .sec-head {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 26px;
+  }
+
+  /* ---------- lane key ---------- */
+  .lanes {
+    display: grid;
+    gap: 10px;
+  }
+  .lane {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 18px;
+    align-items: start;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--lc);
+    border-radius: 6px;
+    padding: 14px 18px;
+  }
+  .lane-name {
+    font-family: var(--mono);
+    font-size: .76rem;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--lc);
+    padding-top: 2px;
+  }
+  .lane-body { display: flex; flex-direction: column; gap: 5px; }
+  .lane-body .where { font-family: var(--mono); font-size: .84rem; color: var(--ink); }
+  .lane-body .what  { color: var(--dim); font-size: .92rem; }
+  .lane-body .api   { font-size: .86rem; color: var(--faint); }
+  .lane-body .api b { color: var(--brain); font-weight: 600; }
+
+  .l-ui      { --lc: var(--ui); }
+  .l-brain   { --lc: var(--brain); }
+  .l-rules   { --lc: var(--rules); }
+  .l-persist { --lc: var(--persist); }
+  .l-disk    { --lc: var(--disk); }
+
+  /* ---------- trace chains ---------- */
+  .trace {
+    display: grid;
+    gap: 0;
+  }
+  .step {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 0;
+  }
+  .step-rail {
+    position: relative;
+    display: flex;
+    justify-content: center;
+  }
+  .step-rail::before {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: var(--line2);
+  }
+  .step:first-child .step-rail::before { top: 18px; }
+  .step:last-child  .step-rail::before { bottom: calc(100% - 18px); }
+  .pip {
+    position: relative;
+    margin-top: 10px;
+    width: 17px; height: 17px;
+    border-radius: 50%;
+    background: var(--void);
+    border: 1.5px solid var(--sc);
+    color: var(--sc);
+    font-family: var(--mono);
+    font-size: .6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+  }
+  .step-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--sc);
+    border-radius: 6px;
+    padding: 13px 16px 14px;
+    margin: 4px 0 4px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+  .step-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .tag {
+    font-family: var(--mono);
+    font-size: .64rem;
+    text-transform: uppercase;
+    letter-spacing: .13em;
+    color: var(--sc);
+    background: var(--sc-bg);
+    border-radius: 3px;
+    padding: 3px 7px;
+    flex: none;
+  }
+  .step-title { font-weight: 600; font-size: .98rem; color: var(--ink); }
+  .step-say { color: var(--dim); font-size: .92rem; }
+  .step-say em { color: var(--ink); font-style: normal; font-weight: 600; }
+
+  .s-ui      { --sc: var(--ui);      --sc-bg: var(--ui-bg); }
+  .s-brain   { --sc: var(--brain);   --sc-bg: var(--brain-bg); }
+  .s-rules   { --sc: var(--rules);   --sc-bg: var(--rules-bg); }
+  .s-persist { --sc: var(--persist); --sc-bg: var(--persist-bg); }
+  .s-disk    { --sc: var(--disk);    --sc-bg: var(--disk-bg); }
+  .s-alarm   { --sc: var(--alarm);   --sc-bg: var(--alarm-bg); }
+
+  pre.code {
+    margin: 0;
+    background: var(--void);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 9px 12px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: .8rem;
+    line-height: 1.55;
+    color: #b9c9d9;
+    tab-size: 2;
+  }
+  pre.code .k { color: #7dd3fc; }
+  pre.code .f { color: var(--brain); }
+  pre.code .s { color: #86efac; }
+  pre.code .c { color: var(--faint); font-style: italic; }
+
+  /* ---------- takeaway ---------- */
+  .takeaway {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    background: var(--brain-bg);
+    border: 1px solid rgba(251,191,36,.28);
+    border-radius: 6px;
+    padding: 15px 18px;
+    margin-top: 18px;
+  }
+  .takeaway .bang {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--brain);
+    padding-top: 3px;
+    flex: none;
+  }
+  .takeaway p { color: var(--ink); font-size: .95rem; }
+  .takeaway p + p { margin-top: 8px; color: var(--dim); }
+
+  .alarmbox {
+    background: var(--alarm-bg);
+    border: 1px solid rgba(251,113,133,.3);
+  }
+  .alarmbox .bang { color: var(--alarm); }
+
+  /* ---------- tables ---------- */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; min-width: 620px; }
+  th, td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th {
+    font-family: var(--mono);
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--faint);
+    font-weight: 500;
+    background: var(--panel2);
+  }
+  tr:last-child td { border-bottom: none; }
+  td code { color: var(--ink); }
+  .verb {
+    font-family: var(--mono);
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .v-get   { color: #7dd3fc; background: rgba(125,211,252,.12); }
+  .v-post  { color: var(--persist); background: var(--persist-bg); }
+  .v-patch { color: var(--brain); background: var(--brain-bg); }
+  .v-del   { color: var(--alarm); background: var(--alarm-bg); }
+
+  /* ---------- mermaid ---------- */
+  .mapbox {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px 12px;
+    overflow-x: auto;
+  }
+  .mermaid { display: flex; justify-content: center; min-width: 640px; }
+
+  /* ---------- closing ---------- */
+  .shape {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    margin-top: 8px;
+  }
+  .shape-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .shape-card .n {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .12em;
+    color: var(--faint);
+    text-transform: uppercase;
+  }
+  .shape-card .t { font-weight: 600; }
+  .shape-card .d { color: var(--dim); font-size: .9rem; }
+
+  footer {
+    margin-top: 80px;
+    padding-top: 26px;
+    border-top: 1px solid var(--line);
+    color: var(--faint);
+    font-family: var(--mono);
+    font-size: .78rem;
+  }
+
+  a { color: var(--rules); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--brain); outline-offset: 2px; }
+
+  @media (max-width: 640px) {
+    .lane { grid-template-columns: 1fr; gap: 8px; }
+    .step { grid-template-columns: 28px 1fr; }
+    .step-card { margin-left: 6px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">Momentum · reading the front end by tracing, not by reading</p>
+    <h1>Four actions, traced <span>end to end</span>.</h1>
+    <p class="lede">
+      You don't read a React app top to bottom. You pick one thing a person can do,
+      and follow the signal: which button, which function, which state, which file on disk,
+      who reads it back. Do that four times and the shape of the whole app falls out.
+    </p>
+    <div class="method">
+      <span>Button</span><span class="arrow">→</span>
+      <span>Function</span><span class="arrow">→</span>
+      <span><b>State</b></span><span class="arrow">→</span>
+      <span>Storage</span><span class="arrow">→</span>
+      <span>Read back on load</span>
+    </div>
+  </header>
+
+  <!-- ================= LANE KEY ================= -->
+  <section id="lanes">
+    <div class="sec-head">
+      <p class="eyebrow">The key · learn this once</p>
+      <h2>Five lanes. Every trace runs through the same five.</h2>
+      <p class="note">Colors are consistent for the rest of the page. Once you know the lanes, you can read any trace below at a glance.</p>
+    </div>
+
+    <div class="lanes">
+      <div class="lane l-ui">
+        <div class="lane-name">Screen</div>
+        <div class="lane-body">
+          <p class="where">src/views/*.jsx · src/components/ui.jsx</p>
+          <p class="what">Draws pixels and catches clicks. Holds only throwaway state — what you're typing, which tab is open. Never decides anything permanent.</p>
+          <p class="api">Backend impact: <b>almost none</b>. These files barely change.</p>
+        </div>
+      </div>
+      <div class="lane l-brain">
+        <div class="lane-name">Brain</div>
+        <div class="lane-body">
+          <p class="where">src/App.jsx</p>
+          <p class="what">Owns all five collections. Every real change to your data happens in one of its mutation helpers — nowhere else.</p>
+          <p class="api">Backend impact: <b>this is where every API call goes.</b></p>
+        </div>
+      </div>
+      <div class="lane l-rules">
+        <div class="lane-name">Rules</div>
+        <div class="lane-body">
+          <p class="where">src/lib/entities.js · dates.js · config.js</p>
+          <p class="what">Pure functions. Give them input, get output. No state, no network, no surprises.</p>
+          <p class="api">Backend impact: <b>id creation moves to the server</b>; the rest stays.</p>
+        </div>
+      </div>
+      <div class="lane l-persist">
+        <div class="lane-name">Persist</div>
+        <div class="lane-body">
+          <p class="where">src/lib/storage.js</p>
+          <p class="what">The only file in the project that touches localStorage. Turns objects into text and back.</p>
+          <p class="api">Backend impact: <b>this is the seam — it becomes HTTP.</b></p>
+        </div>
+      </div>
+      <div class="lane l-disk">
+        <div class="lane-name">Bytes</div>
+        <div class="lane-body">
+          <p class="where">browser localStorage · five keys</p>
+          <p class="what"><code>momentum_profile</code> · <code>momentum_categories</code> · <code>momentum_goals</code> · <code>momentum_tasks</code> · <code>momentum_roadmaps</code></p>
+          <p class="api">Backend impact: <b>replaced by five MongoDB collections.</b></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TRACE 1 ================= -->
+  <section id="add">
+    <div class="sec-head">
+      <p class="eyebrow">Trace 01 · create</p>
+      <h2>The user adds a task</h2>
+      <p class="note">Type a title, press Add. Nine hops from your finger to the bytes on disk.</p>
+    </div>
+
+    <div class="trace">
+
+      <div class="step s-ui">
+        <div class="step-rail"><div class="pip">1</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Screen</span><span class="step-title">The button</span><span class="file">views/TasksView.jsx:72</span></div>
+<pre class="code">&lt;<span class="k">button</span> className=<span class="s">"btn primary"</span> <span class="f">onClick</span>={submit} disabled={!draft.trim()}&gt;Add&lt;/<span class="k">button</span>&gt;</pre>
+          <p class="step-say">Pressing <em>Enter</em> in the text box calls the same <code>submit</code> — line 64. Two doors, one function.</p>
+        </div>
+      </div>
+
+      <div class="step s-ui">
+        <div class="step-rail"><div class="pip">2</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Screen</span><span class="step-title">What you typed lives here, and only here</span><span class="file">views/TasksView.jsx:17-19</span></div>
+<pre class="code"><span class="k">const</span> [draft, setDraft]   = <span class="f">useState</span>(<span class="s">""</span>);
+<span class="k">const</span> [effort, setEffort] = <span class="f">useState</span>(<span class="s">"low"</span>);
+<span class="k">const</span> [goalId, setGoalId] = <span class="f">useState</span>(<span class="s">""</span>);</pre>
+          <p class="step-say">This is <em>form state</em>, not app data. It is never saved anywhere. Refresh the page mid-typing and it's gone — correctly so.</p>
+        </div>
+      </div>
+
+      <div class="step s-ui">
+        <div class="step-rail"><div class="pip">3</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Screen</span><span class="step-title">submit() — validate, hand off, clear</span><span class="file">views/TasksView.jsx:28</span></div>
+<pre class="code"><span class="k">const</span> <span class="f">submit</span> = () =&gt; {
+  <span class="k">const</span> title = draft.<span class="f">trim</span>();
+  <span class="k">if</span> (!title) <span class="k">return</span>;                                <span class="c">// no empty tasks</span>
+  <span class="f">onAdd</span>({ title, date: activeDate, effort, goalId: goalId || <span class="k">null</span> });
+  <span class="f">setDraft</span>(<span class="s">""</span>);                                     <span class="c">// clear the box</span>
+};</pre>
+          <p class="step-say">Notice what it does <em>not</em> do: it doesn't create an id, doesn't add to a list, doesn't save. It packages a request and calls a prop it was handed. This is "callbacks up".</p>
+        </div>
+      </div>
+
+      <div class="step s-brain">
+        <div class="step-rail"><div class="pip">4</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Brain</span><span class="step-title">Where onAdd actually came from</span><span class="file">App.jsx:329</span></div>
+<pre class="code">&lt;<span class="k">TasksView</span> tasks={tasks} goals={goals} categories={categories}
+  <span class="f">onAdd</span>={addTask} <span class="f">onToggle</span>={toggleTask}
+  <span class="f">onEdit</span>={(t) =&gt; <span class="f">setTaskModal</span>(t)} <span class="f">onDelete</span>={askDeleteTask} /&gt;</pre>
+          <p class="step-say">Data flows <em>down</em> as props (<code>tasks</code>), intentions flow <em>up</em> as functions (<code>onAdd</code>). The view never knew what <code>onAdd</code> was — that's the point.</p>
+        </div>
+      </div>
+
+      <div class="step s-brain">
+        <div class="step-rail"><div class="pip">5</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Brain</span><span class="step-title">addTask — the one real mutation</span><span class="file">App.jsx:157</span></div>
+<pre class="code"><span class="c">/* BACKEND HOOK: POST /tasks */</span>
+<span class="k">const</span> <span class="f">addTask</span> = (t) =&gt; <span class="f">setTasks</span>((p) =&gt; p.<span class="f">concat</span>([<span class="f">newEntity</span>({ done: <span class="k">false</span>, ...t })]));</pre>
+          <p class="step-say"><code>p.concat([...])</code> builds a <em>brand-new array</em> instead of pushing into the old one. React only re-renders when it sees a different array — <code>push</code> would change nothing on screen.</p>
+        </div>
+      </div>
+
+      <div class="step s-rules">
+        <div class="step-rail"><div class="pip">6</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Rules</span><span class="step-title">newEntity stamps the envelope</span><span class="file">lib/entities.js</span></div>
+<pre class="code"><span class="k">export function</span> <span class="f">newEntity</span>(fields) {
+  <span class="k">const</span> t = <span class="f">nowISO</span>();
+  <span class="k">return</span> { id: <span class="f">uid</span>(), createdAt: t, updatedAt: t, deletedAt: <span class="k">null</span>, ...fields };
+}</pre>
+          <p class="step-say">Your bare <code>{ title, date, effort, goalId }</code> becomes a full record. Every goal, task, category and roadmap wears this same four-field envelope — that's why one backend pattern covers all of them.</p>
+        </div>
+      </div>
+
+      <div class="step s-brain">
+        <div class="step-rail"><div class="pip">7</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Brain</span><span class="step-title">React re-renders, the row appears</span><span class="file">App.jsx:73 → 328</span></div>
+<pre class="code"><span class="k">const</span> [tasks, setTasks] = <span class="f">useState</span>([]);   <span class="c">// changed → App re-runs</span>
+<span class="c">// → TasksView gets the new array → filters it → new &lt;li&gt; on screen</span></pre>
+          <p class="step-say">Nothing has been saved yet. The task is on screen and in memory only. If the browser crashed right now, it would be lost.</p>
+        </div>
+      </div>
+
+      <div class="step s-persist">
+        <div class="step-rail"><div class="pip">8</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Persist</span><span class="step-title">350ms of silence, then autosave fires</span><span class="file">App.jsx:131 → lib/storage.js:84</span></div>
+<pre class="code"><span class="f">useAutoSave</span>(STORE_KEYS.tasks, tasks, hydrated, report);   <span class="c">// App.jsx:131</span>
+
+<span class="c">// storage.js — waits, then writes the WHOLE array</span>
+<span class="k">const</span> timer = <span class="f">setTimeout</span>(() =&gt; {
+  <span class="f">report</span>({ state: <span class="s">"saving"</span> });
+  <span class="f">saveJSON</span>(key, value).<span class="f">then</span>(() =&gt; <span class="f">report</span>({ state: <span class="s">"saved"</span> }));
+}, 350);</pre>
+          <p class="step-say">That "Saving / Saved" pill in the top bar is this line talking. The debounce exists so typing doesn't fire a write per keystroke.</p>
+        </div>
+      </div>
+
+      <div class="step s-disk">
+        <div class="step-rail"><div class="pip">9</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Bytes</span><span class="step-title">One key, one big string</span><span class="file">lib/storage.js:59</span></div>
+<pre class="code"><span class="k">async</span> <span class="f">set</span>(k, v) { localStorage.<span class="f">setItem</span>(k, v); }
+<span class="c">// key:   "momentum_tasks"</span>
+<span class="c">// value: JSON.stringify(entire tasks array)</span></pre>
+          <p class="step-say">All your tasks are one string under one key. Adding a single task rewrites every task you own.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="takeaway">
+      <span class="bang">Take</span>
+      <div>
+        <p>The view collected input and asked. <code>App.jsx</code> decided and changed the data. <code>lib/</code> did the pure work. <code>storage.js</code> wrote it down. That split holds for every action in the app.</p>
+        <p>For your backend: step 5 is the only line that needs to change. <code>addTask</code> becomes a <code>POST /api/tasks</code>, and step 6's <code>uid()</code> moves to the server so two devices can't invent the same id.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TRACE 2 ================= -->
+  <section id="edit">
+    <div class="sec-head">
+      <p class="eyebrow">Trace 02 · update</p>
+      <h2>The user edits a task</h2>
+      <p class="note">Two flavours, and the difference matters. Ticking a checkbox sends an id. Opening the editor sends a whole object.</p>
+    </div>
+
+    <div class="trace">
+
+      <div class="step s-ui">
+        <div class="step-rail"><div class="pip">1</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Screen</span><span class="step-title">Fast path — the checkbox sends only an id</span><span class="file">views/TasksView.jsx:90</span></div>
+<pre class="code">&lt;<span class="k">button</span> className={<span class="s">"check"</span> + (t.done ? <span class="s">" on"</span> : <span class="s">""</span>)} <span class="f">onClick</span>={() =&gt; <span class="f">onToggle</span>(t.id)}&gt;</pre>
+          <p class="step-say">The view doesn't compute the new value. It says "this one changed" and lets the brain work out what that means.</p>
+        </div>
+      </div>
+
+      <div class="step s-brain">
+        <div class="step-rail"><div class="pip">2</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Brain</span><span class="step-title">toggleTask — copy the list, replace one item</span><span class="file">App.jsx:159</span></div>
+<pre class="code"><span class="c">/* BACKEND HOOK: PATCH /tasks/:id  { done } */</span>
+<span class="k">const</span> <span class="f">toggleTask</span> = (id) =&gt;
+  <span class="f">setTasks</span>((p) =&gt; p.<span class="f">map</span>((t) =&gt; (t.id === id ? <span class="f">touch</span>(t, { done: !t.done }) : t)));</pre>
+          <p class="step-say"><code>map</code> returns a new array where every task is the same object except one. This exact three-part shape — <em>map, match the id, touch</em> — is the update pattern everywhere in this codebase.</p>
+        </div>
+      </div>
+
+      <div class="step s-rules">
+        <div class="step-rail"><div class="pip">3</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Rules</span><span class="step-title">touch — change fields, bump the clock</span><span class="file">lib/entities.js</span></div>
+<pre class="code"><span class="k">export function</span> <span class="f">touch</span>(entity, changes) {
+  <span class="k">return</span> { ...entity, ...changes, updatedAt: <span class="f">nowISO</span>() };
+}</pre>
+          <p class="step-say">Every edit in the app goes through <code>touch</code>, so <code>updatedAt</code> is always honest. When two devices sync, that field is how you decide which version wins.</p>
+        </div>
+      </div>
+
+      <div class="step s-ui">
+        <div class="step-rail"><div class="pip">4</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Screen</span><span class="step-title">Slow path — the pencil opens a dialog and changes nothing</span><span class="file">views/TasksView.jsx:100 → App.jsx:329</span></div>
+<pre class="code"><span class="f">onClick</span>={() =&gt; <span class="f">onEdit</span>(t)}                <span class="c">// TasksView</span>
+<span class="f">onEdit</span>={(t) =&gt; <span class="f">setTaskModal</span>(t)}         <span class="c">// App wires it to a piece of UI state</span>
+
+{taskModal &amp;&amp; &lt;<span class="k">TaskModal</span> task={taskModal} goals={goals} <span class="f">onSave</span>={saveTask} /&gt;}   <span class="c">// App.jsx:351</span></pre>
+          <p class="step-say"><code>taskModal</code> holds <em>which task is being edited</em>. Set it and the dialog exists; set it back to <code>null</code> and the dialog is gone. That's the whole modal system.</p>
+        </div>
+      </div>
+
+      <div class="step s-ui">
+        <div class="step-rail"><div class="pip">5</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Screen</span><span class="step-title">The dialog edits a private copy</span><span class="file">views/TasksView.jsx:117</span></div>
+<pre class="code"><span class="k">const</span> [d, setD] = <span class="f">useState</span>({
+  title: task.title, effort: task.effort, goalId: task.goalId || <span class="s">""</span>,
+  schedule: task.date === <span class="k">null</span> ? <span class="s">"backlog"</span> : <span class="s">"date"</span>, date: task.date || <span class="f">todayStr</span>(),
+});</pre>
+          <p class="step-say">A <em>draft</em>. Typing here doesn't touch the real task, which is exactly why Cancel works — nothing was ever changed to undo.</p>
+        </div>
+      </div>
+
+      <div class="step s-brain">
+        <div class="step-rail"><div class="pip">6</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Brain</span><span class="step-title">Save changes — the finished object goes up</span><span class="file">views/TasksView.jsx:122 → App.jsx:161</span></div>
+<pre class="code"><span class="c">// the dialog builds the whole new task itself</span>
+<span class="f">onSave</span>(<span class="f">touch</span>(task, { title, effort: d.effort, goalId: d.goalId || <span class="k">null</span>,
+                 date: d.schedule === <span class="s">"backlog"</span> ? <span class="k">null</span> : d.date }));
+
+<span class="c">/* BACKEND HOOK: PATCH /tasks/:id  (full edit) */</span>
+<span class="k">const</span> <span class="f">saveTask</span> = (task) =&gt; {
+  <span class="f">setTasks</span>((p) =&gt; p.<span class="f">map</span>((t) =&gt; (t.id === task.id ? task : t)));
+  <span class="f">setTaskModal</span>(<span class="k">null</span>);                       <span class="c">// close the dialog</span>
+};</pre>
+          <p class="step-say">One function, two jobs: swap the record, dismiss the dialog. Then the same 350ms autosave from Trace 01 writes the whole array again.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="takeaway">
+      <span class="bang">Take</span>
+      <div>
+        <p>Modals are just state. <code>taskModal</code> is <code>null</code> or a task — nothing more. The same trick runs <code>goalModal</code>, <code>catModal</code> and <code>confirm</code>.</p>
+        <p>For your backend: both paths land on <code>PATCH /api/tasks/:id</code>. The checkbox sends <code>{ done }</code>, the dialog sends the edited fields. Let the server set <code>updatedAt</code> — a phone with a wrong clock shouldn't get to stamp your data.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TRACE 3 ================= -->
+  <section id="delete">
+    <div class="sec-head">
+      <p class="eyebrow">Trace 03 · delete</p>
+      <h2>The user deletes a task</h2>
+      <p class="note">The most surprising trace in the app: the delete button never deletes anything, and the row that vanished is still in the array.</p>
+    </div>
+
+    <div class="trace">
+
+      <div class="step s-ui">
+        <div class="step-rail"><div class="pip">1</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Screen</span><span class="step-title">The trash icon</span><span class="file">views/TasksView.jsx:101</span></div>
+<pre class="code">&lt;<span class="k">button</span> className=<span class="s">"icon-btn danger-hover"</span> <span class="f">onClick</span>={() =&gt; <span class="f">onDelete</span>(t)}&gt;</pre>
+          <p class="step-say">Sends the whole task, not just the id — because the confirmation message needs the title.</p>
+        </div>
+      </div>
+
+      <div class="step s-brain">
+        <div class="step-rail"><div class="pip">2</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Brain</span><span class="step-title">askDeleteTask deletes nothing — it asks</span><span class="file">App.jsx:165</span></div>
+<pre class="code"><span class="k">const</span> <span class="f">askDeleteTask</span> = (task) =&gt; <span class="f">setConfirm</span>({
+  kind: <span class="s">"task"</span>, title: <span class="s">"Delete this task?"</span>,
+  message: <span class="s">'"'</span> + task.title + <span class="s">'" will be removed.'</span>,
+  <span class="f">onConfirm</span>: () =&gt; { <span class="f">softDeleteTask</span>(task.id); <span class="f">setConfirm</span>(<span class="k">null</span>); },
+});</pre>
+          <p class="step-say">The clever bit: <code>onConfirm</code> is a function stored <em>inside state</em>, and it already remembers which task you clicked. The dialog stays completely generic.</p>
+        </div>
+      </div>
+
+      <div class="step s-ui">
+        <div class="step-rail"><div class="pip">3</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Screen</span><span class="step-title">One dialog serves every deletion in the app</span><span class="file">App.jsx:353 → components/ui.jsx:45</span></div>
+<pre class="code">{confirm &amp;&amp; (
+  &lt;<span class="k">ConfirmDialog</span> title={confirm.title} message={confirm.message}
+    <span class="f">onCancel</span>={() =&gt; <span class="f">setConfirm</span>(<span class="k">null</span>)}
+    <span class="f">onConfirm</span>={() =&gt; confirm.<span class="f">onConfirm</span>(deleteLinked)} /&gt;
+)}</pre>
+          <p class="step-say">Tasks, goals, roadmaps, phases, reset, import — all six confirmations are this one component. Cancel is simply <code>setConfirm(null)</code>: forget the question was asked.</p>
+        </div>
+      </div>
+
+      <div class="step s-brain">
+        <div class="step-rail"><div class="pip">4</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Brain</span><span class="step-title">softDeleteTask — a timestamp, not a removal</span><span class="file">App.jsx:163</span></div>
+<pre class="code"><span class="c">/* BACKEND HOOK: DELETE /tasks/:id  (server sets deletedAt) */</span>
+<span class="k">const</span> <span class="f">softDeleteTask</span> = (id) =&gt;
+  <span class="f">setTasks</span>((p) =&gt; p.<span class="f">map</span>((t) =&gt; (t.id === id ? <span class="f">touch</span>(t, { deletedAt: <span class="f">nowISO</span>() }) : t)));</pre>
+          <p class="step-say">Same <code>map</code> + <code>touch</code> as an edit. The array is still the same length. Nothing was thrown away.</p>
+        </div>
+      </div>
+
+      <div class="step s-rules">
+        <div class="step-rail"><div class="pip">5</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Rules</span><span class="step-title">So why did it disappear? A filter, one line up the file</span><span class="file">views/TasksView.jsx:25 · lib/entities.js</span></div>
+<pre class="code"><span class="k">export const</span> <span class="f">alive</span> = (e) =&gt; !e.deletedAt;                    <span class="c">// entities.js</span>
+
+<span class="k">const</span> list = tasks.<span class="f">filter</span>((t) =&gt; <span class="f">alive</span>(t) &amp;&amp; ...);            <span class="c">// TasksView.jsx:25</span></pre>
+          <p class="step-say">The row vanished because the screen <em>stopped drawing it</em>, not because the data left. Every list in the app filters through <code>alive</code>.</p>
+        </div>
+      </div>
+
+      <div class="step s-disk">
+        <div class="step-rail"><div class="pip">6</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Bytes</span><span class="step-title">The dead row gets saved too</span><span class="file">lib/storage.js:76</span></div>
+<pre class="code"><span class="c">// the array written to disk still contains it:</span>
+{ <span class="s">"id"</span>: <span class="s">"mdq7k0zj4hp"</span>, <span class="s">"title"</span>: <span class="s">"Old task I deleted"</span>,
+  <span class="s">"deletedAt"</span>: <span class="s">"2026-08-09T10:05:40.213Z"</span> }</pre>
+          <p class="step-say">Open your exported backup and you'll see them. That's not a bug — it's what makes undo, history and multi-device sync possible later.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="takeaway">
+      <span class="bang">Take</span>
+      <div>
+        <p>Deleting a goal is the same trace with one extra branch: <code>askDeleteGoal</code> (App.jsx:184) counts the linked tasks and offers a checkbox — either mark those tasks deleted too, or just set their <code>goalId</code> to <code>null</code> and let them survive.</p>
+        <p>For your backend: <code>DELETE /api/tasks/:id</code> must set <code>deletedAt</code>, never actually remove the document. If the server hard-deletes, the other device has no way to learn the row is gone.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TRACE 4 ================= -->
+  <section id="load">
+    <div class="sec-head">
+      <p class="eyebrow">Trace 04 · boot</p>
+      <h2>The page loads for the first time</h2>
+      <p class="note">Everything above wrote data. This is the only trace that reads it back — and it's the one your backend changes most.</p>
+    </div>
+
+    <div class="trace">
+
+      <div class="step s-ui">
+        <div class="step-rail"><div class="pip">1</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Screen</span><span class="step-title">One script tag, one div</span><span class="file">index.html:9-10 → src/main.jsx:6</span></div>
+<pre class="code">&lt;<span class="k">div</span> id=<span class="s">"root"</span>&gt;&lt;/<span class="k">div</span>&gt;
+&lt;<span class="k">script</span> type=<span class="s">"module"</span> src=<span class="s">"/src/main.jsx"</span>&gt;&lt;/<span class="k">script</span>&gt;
+
+<span class="f">createRoot</span>(document.<span class="f">getElementById</span>(<span class="s">"root"</span>)).<span class="f">render</span>(&lt;<span class="k">App</span> /&gt;);</pre>
+          <p class="step-say">The entire app is drawn by JavaScript into one empty div. There is no other HTML file.</p>
+        </div>
+      </div>
+
+      <div class="step s-brain">
+        <div class="step-rail"><div class="pip">2</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Brain</span><span class="step-title">Every collection starts empty</span><span class="file">App.jsx:68-74</span></div>
+<pre class="code"><span class="k">const</span> [hydrated, setHydrated]     = <span class="f">useState</span>(<span class="k">false</span>);
+<span class="k">const</span> [profile, setProfile]       = <span class="f">useState</span>(DEFAULT_PROFILE);
+<span class="k">const</span> [categories, setCategories] = <span class="f">useState</span>([]);
+<span class="k">const</span> [goals, setGoals]           = <span class="f">useState</span>([]);
+<span class="k">const</span> [tasks, setTasks]           = <span class="f">useState</span>([]);
+<span class="k">const</span> [roadmaps, setRoadmaps]     = <span class="f">useState</span>([]);</pre>
+          <p class="step-say">React renders before it reads anything. <code>hydrated</code> is the flag that means <em>"the real data has landed"</em> — remember it, it's about to matter twice.</p>
+        </div>
+      </div>
+
+      <div class="step s-brain">
+        <div class="step-rail"><div class="pip">3</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Brain</span><span class="step-title">First paint is the spinner</span><span class="file">App.jsx:270</span></div>
+<pre class="code"><span class="k">if</span> (!hydrated) <span class="k">return</span> &lt;<span class="k">div</span> className=<span class="s">"loading"</span>&gt;…Loading your data…&lt;/<span class="k">div</span>&gt;;</pre>
+          <p class="step-say">This guard is why you never see an empty task list flash before your real tasks appear.</p>
+        </div>
+      </div>
+
+      <div class="step s-brain">
+        <div class="step-rail"><div class="pip">4</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Brain</span><span class="step-title">The load effect — runs exactly once</span><span class="file">App.jsx:88-107</span></div>
+<pre class="code"><span class="f">useEffect</span>(() =&gt; {
+  (<span class="k">async</span> () =&gt; {
+    <span class="k">const</span> r = <span class="k">await</span> Promise.<span class="f">all</span>([
+      <span class="f">loadJSON</span>(STORE_KEYS.profile, <span class="k">null</span>),  <span class="f">loadJSON</span>(STORE_KEYS.categories, <span class="k">null</span>),
+      <span class="f">loadJSON</span>(STORE_KEYS.goals, []),     <span class="f">loadJSON</span>(STORE_KEYS.tasks, []),
+      <span class="f">loadJSON</span>(STORE_KEYS.roadmaps, []),
+    ]);
+    <span class="f">setProfile</span>({ ...DEFAULT_PROFILE, ...(r[0] || {}) });
+    <span class="f">setTasks</span>(Array.<span class="f">isArray</span>(r[3]) ? r[3] : []);
+    <span class="c">// …plus categories, goals, roadmaps…</span>
+    <span class="f">setHydrated</span>(<span class="k">true</span>);
+  })();
+}, []);                        <span class="c">// ← empty deps: once per page load, never again</span></pre>
+          <p class="step-say">Five reads in parallel. That empty <code>[]</code> at the end is small and important: <em>this never runs a second time</em>, so the app can't notice changes made elsewhere.</p>
+        </div>
+      </div>
+
+      <div class="step s-persist">
+        <div class="step-rail"><div class="pip">5</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Persist</span><span class="step-title">loadJSON — text back into objects</span><span class="file">lib/storage.js:68</span></div>
+<pre class="code"><span class="k">export async function</span> <span class="f">loadJSON</span>(key, fallback) {
+  <span class="k">try</span> {
+    <span class="k">const</span> raw = <span class="k">await</span> store.<span class="f">get</span>(key);          <span class="c">// localStorage.getItem</span>
+    <span class="k">if</span> (raw == <span class="k">null</span>) <span class="k">return</span> fallback;
+    <span class="k">return</span> JSON.<span class="f">parse</span>(raw);
+  } <span class="k">catch</span> { <span class="k">return</span> fallback; }              <span class="c">// ← swallows every error</span>
+}</pre>
+          <p class="step-say">And <code>store</code> was chosen once when the file first loaded, by feature detection: Claude storage if present, else localStorage, else memory (storage.js:37).</p>
+        </div>
+      </div>
+
+      <div class="step s-persist">
+        <div class="step-rail"><div class="pip">6</div></div>
+        <div class="step-card">
+          <div class="step-top"><span class="tag">Persist</span><span class="step-title">hydrated flips — and the autosaves arm themselves</span><span class="file">App.jsx:128-132 · lib/storage.js:86</span></div>
+<pre class="code"><span class="f">useAutoSave</span>(STORE_KEYS.profile, profile, hydrated, report);
+<span class="f">useAutoSave</span>(STORE_KEYS.tasks,   tasks,   hydrated, report);   <span class="c">// ×5 total</span>
+
+<span class="c">// inside useAutoSave:</span>
+<span class="k">if</span> (!hydrated) <span class="k">return</span>;   <span class="c">// don't save the empty [] over real data</span></pre>
+          <p class="step-say">This guard is the whole reason <code>hydrated</code> exists. Without it, the empty arrays from step 2 would be written to disk before your data ever loaded.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="takeaway alarmbox">
+      <span class="bang">Trap</span>
+      <div>
+        <p>Steps 5 and 6 don't quite hold hands. <code>loadJSON</code> returns the fallback on <em>any</em> failure, and step 4 calls <code>setHydrated(true)</code> unconditionally — it never checks whether the reads succeeded. So a failed load looks exactly like an empty account, the autosaves arm, and 350ms later real data is overwritten with <code>[]</code>.</p>
+        <p>On localStorage this is rare. Over a network — dropped wifi, expired token, server restarting — it is routine. Fix this before the first deploy: make <code>loadJSON</code> report failure, and only set <code>hydrated</code> when all five reads actually came back.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FULL MAP ================= -->
+  <section id="map">
+    <div class="sec-head">
+      <p class="eyebrow">All four at once</p>
+      <h2>The whole wiring diagram</h2>
+      <p class="note">Every arrow below is a line you can open. Nothing crosses a lane except through the brain.</p>
+    </div>
+
+    <div class="mapbox">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{
+  'background':'#111821','primaryColor':'#161f2a','primaryTextColor':'#dfe7f0',
+  'primaryBorderColor':'#2b3a4a','lineColor':'#5f7386','fontSize':'13px',
+  'clusterBkg':'#0f1620','clusterBorder':'#2b3a4a','edgeLabelBackground':'#111821'
+}}}%%
+flowchart TB
+
+  subgraph SCREEN["SCREEN — views/*.jsx"]
+    direction LR
+    ADD["Add button<br/>TasksView:72"]
+    CHK["Checkbox<br/>TasksView:90"]
+    PEN["Pencil → dialog<br/>TasksView:100,116"]
+    TRA["Trash<br/>TasksView:101"]
+    CONF["ConfirmDialog<br/>ui.jsx:45"]
+    LIST["Task list<br/>filtered by alive()<br/>TasksView:25"]
+  end
+
+  subgraph BRAIN["BRAIN — App.jsx · owns all five collections"]
+    direction LR
+    A1["addTask :157"]
+    A2["toggleTask :159"]
+    A3["saveTask :161"]
+    A4["askDeleteTask :165"]
+    A5["softDeleteTask :163"]
+    ST[("useState<br/>tasks · goals · categories<br/>roadmaps · profile")]
+    BOOT["load effect :88<br/>runs once"]
+  end
+
+  subgraph RULES["RULES — lib/ · pure functions"]
+    direction LR
+    NE["newEntity()"]
+    TO["touch()"]
+    AL["alive()"]
+  end
+
+  subgraph PERSIST["PERSIST — lib/storage.js"]
+    direction LR
+    AS["useAutoSave :84<br/>350ms debounce"]
+    SJ["saveJSON :76"]
+    LJ["loadJSON :68"]
+  end
+
+  DISK[("localStorage<br/>5 keys")]
+
+  ADD  -->|onAdd| A1
+  CHK  -->|onToggle| A2
+  PEN  -->|onSave| A3
+  TRA  -->|onDelete| A4
+  A4   -->|sets confirm state| CONF
+  CONF -->|onConfirm| A5
+
+  A1 --> NE --> ST
+  A2 --> TO --> ST
+  A3 --> TO
+  A5 --> TO
+
+  ST -->|props down| LIST
+  AL -.->|hides deleted rows| LIST
+
+  ST --> AS --> SJ --> DISK
+  DISK --> LJ --> BOOT --> ST
+
+  linkStyle default stroke:#5f7386,stroke-width:1.2px
+</pre>
+    </div>
+
+    <div class="shape">
+      <div class="shape-card">
+        <span class="n">Pattern</span>
+        <span class="t">Props down, callbacks up</span>
+        <span class="d">Views receive data and a function to call. They never reach for state that isn't theirs.</span>
+      </div>
+      <div class="shape-card">
+        <span class="n">Pattern</span>
+        <span class="t">Copy, never mutate</span>
+        <span class="d"><code>concat</code> and <code>map</code> build new arrays. React re-renders on identity change, not content change.</span>
+      </div>
+      <div class="shape-card">
+        <span class="n">Pattern</span>
+        <span class="t">One mutation, one function</span>
+        <span class="d">Four helpers cover every change a task can undergo. That's four API calls, mapped one to one.</span>
+      </div>
+      <div class="shape-card">
+        <span class="n">Pattern</span>
+        <span class="t">Nothing is ever deleted</span>
+        <span class="d"><code>deletedAt</code> plus an <code>alive()</code> filter. The data stays; the screen looks away.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= BACKEND ================= -->
+  <section id="backend">
+    <div class="sec-head">
+      <p class="eyebrow">Why the tracing was worth it</p>
+      <h2>Each trace, converted</h2>
+      <p class="note">Every line you touch for the backend appeared in a trace above. Everything else — layout, formatting, icons — stays exactly as it is.</p>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Trace</th><th>Line today</th><th>Becomes</th><th>Watch for</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>01 · add</td>
+            <td><code>addTask</code><br /><span class="file">App.jsx:157</span></td>
+            <td><span class="verb v-post">POST</span> <code>/api/tasks</code></td>
+            <td>Let the server create the <code>id</code>, then put its reply into state.</td>
+          </tr>
+          <tr>
+            <td>02 · toggle</td>
+            <td><code>toggleTask</code><br /><span class="file">App.jsx:159</span></td>
+            <td><span class="verb v-patch">PATCH</span> <code>/api/tasks/:id</code></td>
+            <td>Update state immediately, roll back if the request fails.</td>
+          </tr>
+          <tr>
+            <td>02 · edit</td>
+            <td><code>saveTask</code><br /><span class="file">App.jsx:161</span></td>
+            <td><span class="verb v-patch">PATCH</span> <code>/api/tasks/:id</code></td>
+            <td><code>date</code> stays the string <code>"2026-08-16"</code>. Never a Date object.</td>
+          </tr>
+          <tr>
+            <td>03 · delete</td>
+            <td><code>softDeleteTask</code><br /><span class="file">App.jsx:163</span></td>
+            <td><span class="verb v-del">DELETE</span> <code>/api/tasks/:id</code></td>
+            <td>Server sets <code>deletedAt</code>. It must not remove the document.</td>
+          </tr>
+          <tr>
+            <td>04 · boot</td>
+            <td>load effect<br /><span class="file">App.jsx:88</span></td>
+            <td><span class="verb v-get">GET</span> <code>/api/bootstrap</code></td>
+            <td>Only flip <code>hydrated</code> if the request truly succeeded.</td>
+          </tr>
+          <tr>
+            <td>04 · boot</td>
+            <td>5 × <code>useAutoSave</code><br /><span class="file">App.jsx:128-132</span></td>
+            <td>deleted</td>
+            <td>Per-record calls replace them. Whole-array writes across two devices overwrite each other.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="takeaway">
+      <span class="bang">Next</span>
+      <div>
+        <p>Three areas never appeared in these traces because they skip the pattern: <code>RoadmapView</code>, <code>CategoryModal</code> and <code>SettingsView</code> are handed <code>setRoadmaps</code>, <code>setCategories</code> and <code>setProfile</code> directly (App.jsx:340, 344, 352) — the raw state setters. They build their own new arrays, so there's no single function to turn into an API call.</p>
+        <p>Trace one of those yourself as practice. You'll find the missing piece immediately, and refactoring them to match tasks and goals is the last job before the backend goes in.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Momentum · four traces · every line reference points at your working tree
+  </footer>
+
+</div>

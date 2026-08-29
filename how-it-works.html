@@ -1,0 +1,296 @@
+<title>How Momentum works — a beginner's tour</title>
+<style>
+  :root {
+    --paper: #f1f1ec;
+    --surface: #ffffff;
+    --surface-2: #f7f7f3;
+    --ink: #1f211d;
+    --muted: #71725f;
+    --line: #e4e3da;
+    --line-strong: #d3d2c6;
+    --accent: #0f7a52;
+    --accent-soft: #d9efe3;
+    --warn-bg: #fdf4e4;
+    --warn-line: #efdcb5;
+    --warn-ink: #8a6212;
+    --diagram-paper: #fdfdfb;
+    --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: ui-monospace, "Cascadia Code", Consolas, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #14150f;
+      --surface: #1d1e18;
+      --surface-2: #24261e;
+      --ink: #eceade;
+      --muted: #979787;
+      --line: #2f3128;
+      --line-strong: #3d4034;
+      --accent: #4bbd8a;
+      --accent-soft: #1c3a2c;
+      --warn-bg: #2e2717;
+      --warn-line: #4a3f24;
+      --warn-ink: #dcbb74;
+      --diagram-paper: #f4f4ef;
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #f1f1ec; --surface: #ffffff; --surface-2: #f7f7f3;
+    --ink: #1f211d; --muted: #71725f; --line: #e4e3da; --line-strong: #d3d2c6;
+    --accent: #0f7a52; --accent-soft: #d9efe3;
+    --warn-bg: #fdf4e4; --warn-line: #efdcb5; --warn-ink: #8a6212;
+    --diagram-paper: #fdfdfb;
+  }
+  :root[data-theme="dark"] {
+    --paper: #14150f; --surface: #1d1e18; --surface-2: #24261e;
+    --ink: #eceade; --muted: #979787; --line: #2f3128; --line-strong: #3d4034;
+    --accent: #4bbd8a; --accent-soft: #1c3a2c;
+    --warn-bg: #2e2717; --warn-line: #4a3f24; --warn-ink: #dcbb74;
+    --diagram-paper: #f4f4ef;
+  }
+
+  html { background: var(--paper); }
+  body {
+    font-family: var(--sans);
+    color: var(--ink);
+    line-height: 1.65;
+    margin: 0;
+    padding: 0 20px 80px;
+  }
+  .wrap { max-width: 46rem; margin: 0 auto; }
+
+  .eyebrow {
+    font-size: .72rem; font-weight: 600; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--accent);
+    margin: 56px 0 6px;
+  }
+  h1 {
+    font-size: clamp(1.9rem, 5vw, 2.6rem);
+    line-height: 1.15; margin: 0 0 12px; letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  .lede { font-size: 1.08rem; color: var(--muted); margin: 0 0 8px; }
+
+  h2 {
+    font-size: 1.35rem; letter-spacing: -0.01em; margin: 56px 0 12px;
+    padding-top: 26px; border-top: 1px solid var(--line);
+    text-wrap: balance;
+  }
+  h3 { font-size: 1.05rem; margin: 28px 0 8px; }
+  p { margin: 0 0 14px; }
+  strong { font-weight: 650; }
+
+  code {
+    font-family: var(--mono); font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 5px; padding: .1em .35em;
+  }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 12px; padding: 18px 20px; margin: 18px 0;
+  }
+  .diagram {
+    background: var(--diagram-paper); border: 1px solid var(--line-strong);
+    border-radius: 12px; padding: 14px; margin: 18px 0;
+    overflow-x: auto;
+  }
+  .diagram figcaption {
+    font-size: .8rem; color: #71725f; text-align: center; padding-top: 6px;
+  }
+  figure { margin: 18px 0; }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .74rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  td:first-child { font-family: var(--mono); font-size: .84rem; white-space: nowrap; }
+  .table-scroll { overflow-x: auto; }
+
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 18px 0; }
+  .steps li {
+    counter-increment: step; position: relative;
+    padding: 0 0 18px 52px;
+  }
+  .steps li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: 2px;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    font-weight: 700; font-size: .95rem;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .steps li:not(:last-child)::after {
+    content: ""; position: absolute; left: 15.5px; top: 40px; bottom: 4px;
+    width: 1px; background: var(--line-strong);
+  }
+  .steps b { display: block; margin-bottom: 2px; }
+
+  .idea-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin: 18px 0; }
+  .idea {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 18px;
+  }
+  .idea h3 { margin: 0 0 6px; font-size: .98rem; }
+  .idea p { margin: 0; font-size: .92rem; color: var(--muted); }
+  .idea p strong { color: var(--ink); }
+
+  .rule {
+    background: var(--accent-soft); border: 1px solid var(--accent);
+    border-radius: 12px; padding: 18px 22px; margin: 22px 0;
+  }
+  .rule p { margin: 0; }
+  .callout {
+    background: var(--warn-bg); border: 1px solid var(--warn-line);
+    border-radius: 12px; padding: 14px 18px; margin: 18px 0;
+    color: var(--warn-ink); font-size: .95rem;
+  }
+  .callout p { margin: 0; }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Momentum · A tour of your own code</p>
+  <h1>How Momentum works, explained from zero</h1>
+  <p class="lede">Momentum is a to-do &amp; goals tracker that runs entirely in your browser. There is no server, no database, no account — your browser is the whole machine. This page walks through how the pieces fit together.</p>
+
+  <h2>First, the 30-second version</h2>
+  <p>Think of the app as a small office with three kinds of workers:</p>
+  <ul>
+    <li><strong>One manager</strong> (<code>App.jsx</code>) who keeps every piece of information — your tasks, goals, profile — in their head, and is the only one allowed to change anything.</li>
+    <li><strong>Six screens</strong> (the <code>views/</code> folder: Today, Tasks, Goals, Weekly, Roadmap, Settings) that just <em>display</em> what the manager gives them. When you click something, a screen doesn't act on its own — it reports the click back to the manager.</li>
+    <li><strong>A notebook</strong> (<code>lib/storage.js</code>) where the manager writes everything down so nothing is lost when you close the tab. The notebook is your browser's built-in storage, called <code>localStorage</code>.</li>
+  </ul>
+  <p>That's genuinely the whole design. Everything else is detail.</p>
+
+  <h2>The big picture</h2>
+  <figure class="diagram">
+    <pre class="mermaid">
+flowchart TD
+    B["🌐 You open the app in a browser"] --> M["main.jsx<br/><i>the ignition key — starts React</i>"]
+    M --> A["App.jsx — THE MANAGER<br/><i>holds all data: tasks, goals, profile…</i><br/><i>owns every function that changes data</i>"]
+
+    A -- "hands data down<br/>(props)" --> V
+    V -- "reports clicks up<br/>(callbacks)" --> A
+
+    subgraph V["The six screens — views/"]
+        direction LR
+        T1["Today"]
+        T2["Tasks"]
+        T3["Goals"]
+        T4["Weekly"]
+        T5["Roadmap"]
+        T6["Settings"]
+    end
+
+    A <-- "save / load" --> S["lib/storage.js<br/><i>the notebook</i>"]
+    S <--> LS[("localStorage<br/><i>your browser's saved data</i>")]
+
+    H["lib/ helpers<br/><i>dates.js · entities.js · config.js · transfer.js</i>"] -.->|"small tools used everywhere"| A
+
+    style A fill:#d9efe3,stroke:#0f7a52,stroke-width:2px,color:#1f211d
+    style S fill:#fdf4e4,stroke:#c9a94f,color:#1f211d
+    style LS fill:#fdf4e4,stroke:#c9a94f,color:#1f211d
+    style V fill:#f7f7f3,stroke:#d3d2c6,color:#1f211d
+    </pre>
+    <figcaption>Data always flows down from App.jsx; clicks always flow back up to it.</figcaption>
+  </figure>
+
+  <p>Two words on that diagram that you'll see everywhere in React:</p>
+  <div class="idea-grid">
+    <div class="idea">
+      <h3>Props</h3>
+      <p>The data a parent <strong>hands down</strong> to a screen. Like a manager handing a worker today's task list: "here, display this." The screen can read it but never change it.</p>
+    </div>
+    <div class="idea">
+      <h3>Callbacks</h3>
+      <p>Functions handed down alongside the data, so screens can <strong>report up</strong>. The Tasks screen doesn't tick a task itself — it calls <code>toggleTask(id)</code>, which runs inside App.jsx.</p>
+    </div>
+  </div>
+
+  <h2>The story of one click</h2>
+  <p>The clearest way to understand the app is to follow a single click through it. Say you tick off the task <em>"Go to the gym"</em>:</p>
+  <ol class="steps">
+    <li><b>You click the checkbox on the Tasks screen.</b> The screen itself does nothing clever — it just calls the <code>toggleTask</code> function that App.jsx gave it as a prop.</li>
+    <li><b>App.jsx updates its master list.</b> It finds that task in its <code>tasks</code> list and flips <code>done</code> to <code>true</code>. This list in memory is called <strong>state</strong>.</li>
+    <li><b>React redraws everything automatically.</b> This is React's superpower: change the state, and every screen that uses it refreshes itself. The Tasks list shows the tick, the Today progress bar fills, the Weekly chart updates — with zero extra code.</li>
+    <li><b>The autosave waits… then writes.</b> A watcher in App.jsx notices the tasks changed. It waits 350&nbsp;ms of quiet (so rapid clicks don't cause a save each), then asks storage.js to write the list to localStorage.</li>
+    <li><b>The "Saved" pill appears.</b> That little badge in the top-right is just the app reporting that the write succeeded.</li>
+  </ol>
+
+  <figure class="diagram">
+    <pre class="mermaid">
+flowchart LR
+    C["☑️ You tick<br/>a task"] --> V["TasksView calls<br/>toggleTask(id)"]
+    V --> A["App.jsx flips<br/>done: true<br/>in its state"]
+    A --> R["React redraws<br/>every screen<br/>that shows tasks"]
+    A --> W["autosave waits<br/>350 ms of quiet"]
+    W --> P["storage.js writes<br/>to localStorage"]
+    P --> OK["✅ 'Saved' pill"]
+
+    style A fill:#d9efe3,stroke:#0f7a52,stroke-width:2px,color:#1f211d
+    style P fill:#fdf4e4,stroke:#c9a94f,color:#1f211d
+    </pre>
+    <figcaption>One click: update the state → the UI redraws itself → the change is saved.</figcaption>
+  </figure>
+
+  <h2>Who lives in which folder</h2>
+  <div class="card table-scroll">
+    <table>
+      <tr><th>File / folder</th><th>Plain-English job</th></tr>
+      <tr><td>index.html</td><td>The empty page the browser loads first. Nearly blank — React fills it in.</td></tr>
+      <tr><td>src/main.jsx</td><td>The ignition key. Its only job: start React and mount <code>&lt;App/&gt;</code> onto the page.</td></tr>
+      <tr><td>src/App.jsx</td><td>The manager. All data (state), all the functions that change it, which tab is open, autosaving.</td></tr>
+      <tr><td>src/views/</td><td>One file per screen. They receive data and callbacks as props and just render. They never save anything themselves.</td></tr>
+      <tr><td>src/components/</td><td>Reusable Lego bricks: icons, the Modal popup, the confirm dialog, progress bars.</td></tr>
+      <tr><td>src/lib/</td><td>The toolbox — pure logic, no visuals. Date math, the storage notebook, export/import, ID stamping.</td></tr>
+      <tr><td>src/styles/momentum.css</td><td>Every color, font, and spacing rule. The light/dark themes both live here.</td></tr>
+      <tr><td>package.json</td><td>The shopping list: which libraries the app needs (React) and the commands (<code>npm run dev</code>).</td></tr>
+      <tr><td>node_modules/</td><td>The delivered shopping — thousands of files npm downloaded. Never edit; can always be re-downloaded.</td></tr>
+      <tr><td>vite.config.js · dist/</td><td>Vite is the dev server and bundler: it runs the app while you develop and packs it into <code>dist/</code> for publishing.</td></tr>
+    </table>
+  </div>
+
+  <h2>Five ideas the code is built on</h2>
+  <div class="idea-grid">
+    <div class="idea">
+      <h3>State = the single source of truth</h3>
+      <p>All data lives in <strong>one place</strong> (App.jsx). Screens never keep their own copies, so nothing can ever be out of sync.</p>
+    </div>
+    <div class="idea">
+      <h3>Nothing is ever really deleted</h3>
+      <p>Deleting a task just stamps it with <code>deletedAt</code> — a <strong>"soft delete."</strong> The <code>alive()</code> helper hides stamped items. Mistakes stay recoverable.</p>
+    </div>
+    <div class="idea">
+      <h3>Goal progress is computed, not stored</h3>
+      <p>A goal's % bar is <strong>counted from its linked tasks</strong> on every redraw. Since it's never written down, it can never be wrong or stale.</p>
+    </div>
+    <div class="idea">
+      <h3>The Weekly tab stores nothing</h3>
+      <p>Every chart there is a <strong>live calculation</strong> over your tasks. Change your week-start day in Settings and history regroups instantly — no data changed.</p>
+    </div>
+    <div class="idea">
+      <h3>Storage is swappable</h3>
+      <p><code>storage.js</code> picks the best available notebook (localStorage, or memory as a fallback). One day a <strong>real server</strong> can be added there — and no screen will need to change.</p>
+    </div>
+  </div>
+
+  <h2>The one rule that holds it all together</h2>
+  <div class="rule">
+    <p><strong>Screens never touch storage.</strong> Every screen gets its data and its callbacks from App.jsx, and all saving goes through storage.js. Because of this one separation, replacing localStorage with a real online backend later means editing <em>one seam</em> — not rewriting six screens. The comments marked <code>BACKEND HOOK</code> in the code point at exactly those spots.</p>
+  </div>
+
+  <h2>Where your data actually is (and its one weakness)</h2>
+  <p>Everything you type is stored in your browser's <code>localStorage</code> under keys like <code>momentum_tasks</code> — small labelled boxes that survive closing the tab and restarting the computer.</p>
+  <div class="callout">
+    <p><strong>But:</strong> it belongs to <em>this browser on this computer</em>. Clear your browsing data, or open the app on your phone, and it's gone or empty. That's why Settings → Backup exists — Export writes all your data into one JSON file you can keep, and Import loads it back. Use it.</p>
+  </div>
+
+  <h2>What happens when you run <code>npm run dev</code></h2>
+  <ol class="steps">
+    <li><b>Vite starts a tiny local web server</b> at <code>localhost:5173</code> — "localhost" just means <em>this computer</em>.</li>
+    <li><b>Your browser asks it for the page.</b> Vite serves <code>index.html</code>, translates the <code>.jsx</code> files into plain JavaScript on the fly, and sends everything over.</li>
+    <li><b>React boots and App.jsx loads your data</b> from localStorage — if it finds none, you get the onboarding screen instead.</li>
+    <li><b>While you edit code, Vite hot-swaps the changes</b> into the running page, usually without even losing your place. That's why saves show up instantly.</li>
+  </ol>
+
+  <p class="lede" style="margin-top:48px">That's the whole machine: one manager holding the state, six screens rendering it, one notebook persisting it — and a single rule keeping them honest.</p>
+</div>

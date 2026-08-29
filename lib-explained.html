@@ -1,0 +1,501 @@
+<title>Inside lib/ — the logic layer, explained</title>
+<style>
+  :root {
+    --paper: #f1f1ec;
+    --surface: #ffffff;
+    --surface-2: #f7f7f3;
+    --ink: #1f211d;
+    --muted: #71725f;
+    --line: #e4e3da;
+    --line-strong: #d3d2c6;
+    --accent: #0f7a52;
+    --accent-soft: #d9efe3;
+    --warn-bg: #fdf4e4;
+    --warn-line: #efdcb5;
+    --warn-ink: #8a6212;
+    --danger: #c0492f;
+    --danger-soft: #fbe4dd;
+    --code-bg: #f7f7f3;
+    --diagram-paper: #fdfdfb;
+    --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: ui-monospace, "Cascadia Code", Consolas, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #14150f; --surface: #1d1e18; --surface-2: #24261e;
+      --ink: #eceade; --muted: #979787; --line: #2f3128; --line-strong: #3d4034;
+      --accent: #4bbd8a; --accent-soft: #1c3a2c;
+      --warn-bg: #2e2717; --warn-line: #4a3f24; --warn-ink: #dcbb74;
+      --danger: #e07a5f; --danger-soft: #3a221b;
+      --code-bg: #191a14; --diagram-paper: #f4f4ef;
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #f1f1ec; --surface: #ffffff; --surface-2: #f7f7f3;
+    --ink: #1f211d; --muted: #71725f; --line: #e4e3da; --line-strong: #d3d2c6;
+    --accent: #0f7a52; --accent-soft: #d9efe3;
+    --warn-bg: #fdf4e4; --warn-line: #efdcb5; --warn-ink: #8a6212;
+    --danger: #c0492f; --danger-soft: #fbe4dd;
+    --code-bg: #f7f7f3; --diagram-paper: #fdfdfb;
+  }
+  :root[data-theme="dark"] {
+    --paper: #14150f; --surface: #1d1e18; --surface-2: #24261e;
+    --ink: #eceade; --muted: #979787; --line: #2f3128; --line-strong: #3d4034;
+    --accent: #4bbd8a; --accent-soft: #1c3a2c;
+    --warn-bg: #2e2717; --warn-line: #4a3f24; --warn-ink: #dcbb74;
+    --danger: #e07a5f; --danger-soft: #3a221b;
+    --code-bg: #191a14; --diagram-paper: #f4f4ef;
+  }
+
+  html { background: var(--paper); }
+  body {
+    font-family: var(--sans); color: var(--ink); line-height: 1.65;
+    margin: 0; padding: 0 20px 80px;
+  }
+  .wrap { max-width: 47rem; margin: 0 auto; }
+
+  .eyebrow {
+    font-size: .72rem; font-weight: 600; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--accent); margin: 56px 0 6px;
+  }
+  h1 {
+    font-size: clamp(1.9rem, 5vw, 2.5rem); line-height: 1.15;
+    margin: 0 0 12px; letter-spacing: -0.02em; text-wrap: balance;
+  }
+  .lede { font-size: 1.06rem; color: var(--muted); margin: 0 0 8px; }
+
+  h2 {
+    font-size: 1.3rem; letter-spacing: -0.01em; margin: 54px 0 12px;
+    padding-top: 26px; border-top: 1px solid var(--line); text-wrap: balance;
+  }
+  h3 { font-size: 1.02rem; margin: 26px 0 8px; }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  strong { font-weight: 650; }
+
+  code {
+    font-family: var(--mono); font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 5px; padding: .1em .35em;
+  }
+  pre.code {
+    font-family: var(--mono); font-size: .82rem; line-height: 1.6;
+    background: var(--code-bg); border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px 16px; margin: 14px 0;
+    overflow-x: auto;
+  }
+  pre.code code { background: none; border: none; padding: 0; font-size: 1em; }
+  .cmt { color: var(--muted); }
+
+  /* File dossier header */
+  .file {
+    margin: 40px 0 0; border-top: 2px solid var(--accent);
+    padding-top: 14px;
+  }
+  .file-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: 2px; }
+  .file-name { font-family: var(--mono); font-size: 1.1rem; font-weight: 700; }
+  .file-tag {
+    font-size: .7rem; letter-spacing: .08em; text-transform: uppercase;
+    font-weight: 600; border-radius: 999px; padding: 3px 10px;
+    background: var(--surface-2); border: 1px solid var(--line-strong); color: var(--muted);
+  }
+  .file-tag.seam { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .file-tag.stub { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+  .file-role { color: var(--muted); font-size: .95rem; margin: 0 0 14px; }
+
+  .diagram {
+    background: var(--diagram-paper); border: 1px solid var(--line-strong);
+    border-radius: 12px; padding: 14px; margin: 18px 0; overflow-x: auto;
+  }
+  .diagram figcaption { font-size: .8rem; color: #71725f; text-align: center; padding-top: 6px; }
+  figure { margin: 18px 0; }
+
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .table-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px 16px 6px; margin: 18px 0; }
+  .mono-col td:first-child { font-family: var(--mono); font-size: .84rem; white-space: nowrap; }
+
+  .backend {
+    background: var(--accent-soft); border: 1px solid var(--accent);
+    border-radius: 10px; padding: 13px 16px; margin: 16px 0; font-size: .94rem;
+  }
+  .backend p { margin: 0; }
+  .backend b {
+    display: block; font-size: .7rem; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 4px;
+  }
+  .callout {
+    background: var(--warn-bg); border: 1px solid var(--warn-line);
+    border-radius: 10px; padding: 13px 16px; margin: 16px 0;
+    color: var(--warn-ink); font-size: .94rem;
+  }
+  .callout p { margin: 0; }
+  .callout p + p { margin-top: 8px; }
+
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 18px 0; }
+  .steps li { counter-increment: step; position: relative; padding: 0 0 18px 52px; }
+  .steps li::before {
+    content: counter(step); position: absolute; left: 0; top: 2px;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    font-weight: 700; font-size: .95rem;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .steps li:not(:last-child)::after {
+    content: ""; position: absolute; left: 15.5px; top: 40px; bottom: 4px;
+    width: 1px; background: var(--line-strong);
+  }
+  .steps b { display: block; margin-bottom: 2px; }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Momentum · Part 2 — the logic layer</p>
+  <h1>Inside <code style="font-size:.85em">lib/</code>: the seven files you need to understand before writing a backend</h1>
+  <p class="lede">These files hold no visuals and no screens. They are the rules of your data — what a record looks like, how it's stamped, how it's saved, and how it's validated. Your server will end up re-implementing about half of what's in here, so read it as a specification for the API you're about to write.</p>
+
+  <h2>First, a small correction to your mental model</h2>
+  <p>You said "UI is in App.jsx and views, logic is in lib." Close, but the split is actually <strong>three</strong> layers, and the middle one matters most for your backend work:</p>
+
+  <figure class="diagram">
+    <pre class="mermaid">
+flowchart TD
+    V["views/ — PRESENTATION<br/><i>draws buttons and lists, nothing else</i>"]
+    A["App.jsx — THE BRAIN<br/><i>holds the data, owns the rules:</i><br/><i>addTask, toggleTask, saveGoal, softDelete…</i><br/><b>your fetch() calls go HERE</b>"]
+    L["lib/ — THE TOOLBOX<br/><i>small reusable helpers with no memory</i><br/><i>and no opinion about screens</i>"]
+
+    V -->|"reports clicks"| A
+    A -->|"hands down data"| V
+    A -->|"calls helpers"| L
+
+    style A fill:#d9efe3,stroke:#0f7a52,stroke-width:2px,color:#1f211d
+    style L fill:#fdf4e4,stroke:#c9a94f,color:#1f211d
+    style V fill:#f7f7f3,stroke:#d3d2c6,color:#1f211d
+    </pre>
+    <figcaption>lib/ is a toolbox, not the brain. The brain — and your future API calls — live in App.jsx.</figcaption>
+  </figure>
+
+  <p>The distinction is practical: <strong>lib/ files are "pure" helpers.</strong> Give one the same input twice and you get the same answer twice. They don't remember anything between calls and they don't know a screen exists. That's what makes them safe to reuse everywhere — and it's also why <em>most</em> of them will barely change when your backend lands.</p>
+
+  <h2>How the seven files depend on each other</h2>
+  <figure class="diagram">
+    <pre class="mermaid">
+flowchart BT
+    E["entities.js<br/><i>id + timestamp stamping</i>"]
+    D["dates.js<br/><i>date and week math</i>"]
+    C["config.js<br/><i>constants + storage keys</i>"]
+    SE["seed.js<br/><i>demo data</i>"]
+    TR["transfer.js<br/><i>export / import</i>"]
+    ST["storage.js<br/><i>read + write + autosave</i>"]
+    AU["auth.js<br/><i>token stub — unused</i>"]
+
+    C --> E
+    SE --> E
+    SE --> D
+    TR --> D
+
+    style E fill:#d9efe3,stroke:#0f7a52,stroke-width:2px,color:#1f211d
+    style D fill:#d9efe3,stroke:#0f7a52,color:#1f211d
+    style ST fill:#fdf4e4,stroke:#c9a94f,stroke-width:2px,color:#1f211d
+    style AU fill:#fbe4dd,stroke:#c0492f,stroke-dasharray:4 3,color:#1f211d
+    </pre>
+    <figcaption>Arrows mean "imports from". entities.js and dates.js sit at the bottom — they depend on nothing, which is why they're the safest files in the project.</figcaption>
+  </figure>
+
+  <p>Notice <code>storage.js</code> stands alone: nothing in lib/ imports it, and it imports nothing from lib/. That isolation is deliberate — it's the piece you're going to replace.</p>
+
+  <!-- ============ entities.js ============ -->
+  <div class="file">
+    <div class="file-head">
+      <span class="file-name">lib/entities.js</span>
+      <span class="file-tag">27 lines · read this first</span>
+    </div>
+  </div>
+  <p class="file-role">The rulebook for what a "record" is. Every task, goal, category and roadmap in the app is born here.</p>
+
+  <p>It exports four tiny things, and honestly this is the most important file in the project for you right now:</p>
+
+  <pre class="code"><code>uid()      <span class="cmt">// makes a random-ish unique id string</span>
+nowISO()   <span class="cmt">// current time as "2026-08-04T09:31:00.000Z"</span>
+newEntity(fields)      <span class="cmt">// births a record</span>
+touch(entity, changes) <span class="cmt">// edits a record</span>
+alive(entity)          <span class="cmt">// is it not deleted?</span></code></pre>
+
+  <h3>The "envelope"</h3>
+  <p>Every record, no matter what kind, is wrapped in the same four fields before its own data is added:</p>
+
+  <pre class="code"><code>function newEntity(fields) {
+  const t = nowISO();
+  return { id: uid(), createdAt: t, updatedAt: t, deletedAt: null, ...fields };
+}</code></pre>
+
+  <p>So calling <code>newEntity({ title: "Go to the gym", done: false })</code> gives you:</p>
+
+  <pre class="code"><code>{
+  id:        "m6x2k9q4a1b",
+  createdAt: "2026-08-04T09:31:00.000Z",
+  updatedAt: "2026-08-04T09:31:00.000Z",
+  deletedAt: null,          <span class="cmt">// null means "alive"</span>
+  title:     "Go to the gym",
+  done:      false
+}</code></pre>
+
+  <p>The <code>...fields</code> part is JavaScript's spread syntax — "and then paste in whatever the caller passed." That's the whole trick: one function stamps every record type identically.</p>
+
+  <h3>Editing: <code>touch()</code></h3>
+  <pre class="code"><code>function touch(entity, changes) {
+  return { ...entity, ...changes, updatedAt: nowISO() };
+}</code></pre>
+  <p>Read it right-to-left: copy the old record, paste the changes on top, then <em>force</em> <code>updatedAt</code> to now. It returns a <strong>new object</strong> rather than modifying the old one — React needs that to notice something changed. And because <code>updatedAt</code> is set last, no caller can accidentally forget to bump it.</p>
+
+  <h3>Deleting: nothing is actually deleted</h3>
+  <p>There's no delete function. "Deleting" is just an edit that fills in <code>deletedAt</code>, and <code>alive()</code> — literally <code>e => !e.deletedAt</code> — filters those out when drawing the screen. The record stays in storage forever.</p>
+
+  <figure class="diagram">
+    <pre class="mermaid">
+flowchart LR
+    N["newEntity<br/>deletedAt: null"] -->|"touch(t, {done:true})"| U["edited<br/>updatedAt bumped"]
+    U -->|"touch(t, {done:false})"| U
+    U -->|"touch(t, {deletedAt: now})"| X["soft-deleted<br/>hidden by alive()<br/><i>but still in storage</i>"]
+
+    style N fill:#d9efe3,stroke:#0f7a52,color:#1f211d
+    style U fill:#fdfdfb,stroke:#7c7d74,color:#1f211d
+    style X fill:#fbe4dd,stroke:#c0492f,color:#1f211d
+    </pre>
+    <figcaption>A record's whole life. Note the last arrow doesn't remove anything.</figcaption>
+  </figure>
+
+  <div class="backend">
+    <b>What this means for your server</b>
+    <p>Three concrete decisions are already made for you. <strong>(1)</strong> Every table gets <code>created_at</code>, <code>updated_at</code>, <code>deleted_at</code> columns. <strong>(2)</strong> Your <code>DELETE /tasks/:id</code> endpoint runs an <code>UPDATE … SET deleted_at = NOW()</code>, never a real <code>DELETE</code> — and every <code>GET</code> must add <code>WHERE deleted_at IS NULL</code>. Forget that filter once and deleted tasks reappear. <strong>(3)</strong> Keep bumping <code>updated_at</code> on the server, not just trusting the client's value — it's how you'll later resolve "phone and laptop both edited this task" conflicts.</p>
+  </div>
+
+  <div class="callout">
+    <p><strong>One thing to change when you go server-side:</strong> <code>uid()</code> generates ids in the browser using the clock plus a random suffix. Two browsers could theoretically collide, and a client can send you any id it likes. Let the <strong>database</strong> generate ids (a UUID column, or Mongo's <code>_id</code>) and return the created record in the POST response. The frontend can keep making temporary ids for optimistic display, then swap in the real one when the server answers.</p>
+  </div>
+
+  <!-- ============ dates.js ============ -->
+  <div class="file">
+    <div class="file-head">
+      <span class="file-name">lib/dates.js</span>
+      <span class="file-tag">32 lines · pure math</span>
+    </div>
+  </div>
+  <p class="file-role">Turns dates into strings and back, and answers "which week is this in?"</p>
+
+  <p>Everything here is plain arithmetic on JavaScript's built-in <code>Date</code>. No library, no state. The important part isn't the functions — it's the <strong>two different date formats</strong> this app uses on purpose:</p>
+
+  <div class="table-scroll">
+    <table class="mono-col">
+      <tr><th>Format</th><th>Looks like</th><th>Used for</th><th>Why</th></tr>
+      <tr>
+        <td>"YYYY-MM-DD"</td><td>2026-08-04</td>
+        <td><code>task.date</code>, <code>goal.targetDate</code></td>
+        <td>A <em>calendar day</em> with no time and no timezone. "Monday" should mean Monday no matter where you are.</td>
+      </tr>
+      <tr>
+        <td>ISO timestamp</td><td>2026-08-04T09:31:00.000Z</td>
+        <td><code>createdAt</code>, <code>updatedAt</code>, <code>deletedAt</code></td>
+        <td>An exact <em>moment</em>, in UTC. Used for ordering and sync, never shown to the user.</td>
+      </tr>
+    </table>
+  </div>
+
+  <p>The week logic is the one clever bit:</p>
+  <pre class="code"><code>function weekStartOf(dateStr, weekStart) {
+  const d = parseDate(dateStr);
+  const diff = (d.getDay() - weekStart + 7) % 7;  <span class="cmt">// days since the week began</span>
+  d.setDate(d.getDate() - diff);                  <span class="cmt">// rewind to that day</span>
+  return fmtDate(d);
+}</code></pre>
+  <p>Given any date it walks backwards to the start of that date's week, where "start" is your Settings choice (<code>0</code>&nbsp;=&nbsp;Sunday … <code>6</code>&nbsp;=&nbsp;Saturday, defaulting to Saturday). The <code>+ 7) % 7</code> is just a trick to keep the result positive when the subtraction goes negative. This single function is what makes the Weekly tab regroup instantly when you change your week-start day — it's recalculated on every render, never stored.</p>
+
+  <div class="backend">
+    <b>What this means for your server</b>
+    <p>Store <code>task.date</code> as a <strong>plain <code>DATE</code> column or a string</strong> — <em>not</em> a timestamp. If you use a datetime type, your database or driver will helpfully "convert timezones" and a task dated Aug&nbsp;4 will come back as Aug&nbsp;3 at 21:00 for some users. This is one of the most common bugs in first backends. Timestamps (<code>createdAt</code> etc.) are the opposite: always store those in UTC.</p>
+    <p>Also: don't build week-grouping endpoints. Send the raw tasks and let the frontend bucket them, exactly as it does now.</p>
+  </div>
+
+  <!-- ============ config.js ============ -->
+  <div class="file">
+    <div class="file-head">
+      <span class="file-name">lib/config.js</span>
+      <span class="file-tag">41 lines · constants</span>
+    </div>
+  </div>
+  <p class="file-role">The settings sheet: storage key names, the fixed dropdown values, and what a brand-new user starts with.</p>
+
+  <p>Four exports. <code>STORE_KEYS</code> is a lookup table of the five labelled boxes in localStorage:</p>
+  <pre class="code"><code>export const STORE_KEYS = {
+  goals:      "momentum_goals",
+  tasks:      "momentum_tasks",
+  roadmaps:   "momentum_roadmaps",
+  profile:    "momentum_profile",
+  categories: "momentum_categories",
+};</code></pre>
+  <p>They're written down once here so a typo in a key name — which would silently lose data — is impossible elsewhere in the app. <strong>These five names are your five API resources.</strong> That list is your backend's table plan, already decided.</p>
+
+  <p>Then <code>EFFORT</code> (<code>low</code> / <code>mid</code> / <code>high</code> with labels and colors) and <code>GOAL_STATUS</code> (<code>active</code> / <code>paused</code> / <code>done</code>) — fixed sets the user can't extend, so on the server they become enums or a <code>CHECK</code> constraint. And <code>defaultCategories()</code>, which returns the four starter categories (Work, Learning, Health, Personal) a new account begins with.</p>
+
+  <div class="backend">
+    <b>What this means for your server</b>
+    <p>Categories are deliberately <em>data</em>, not a hardcoded list — the user can add and rename them, so they need a real <code>categories</code> table. <code>defaultCategories()</code> becomes something your signup endpoint runs: create the user, then insert their four starter rows.</p>
+  </div>
+
+  <!-- ============ storage.js ============ -->
+  <div class="file">
+    <div class="file-head">
+      <span class="file-name">lib/storage.js</span>
+      <span class="file-tag seam">96 lines · ★ the main seam</span>
+    </div>
+  </div>
+  <p class="file-role">The only file in the app allowed to read or write saved data. This is where your API will physically connect.</p>
+
+  <p>It does three jobs.</p>
+
+  <h3>1. It picks a backend at startup</h3>
+  <p><code>detectBackend()</code> tries options in order and keeps the first that works: a special Claude storage object if the app is running inside Claude, otherwise <code>localStorage</code>, otherwise an in-memory <code>Map</code> that survives only until you close the tab. Each option is an object with the exact same two methods:</p>
+
+  <pre class="code"><code>{
+  id:    "local",
+  label: "Saved in this browser",
+  async get(key)        { <span class="cmt">...</span> },
+  async set(key, value) { <span class="cmt">...</span> },
+}</code></pre>
+
+  <p>This is called the <strong>adapter pattern</strong>, and it's the single most valuable idea in the codebase. Because all three options answer to <code>get</code> and <code>set</code>, the rest of the app has no idea which one is in use. Adding a fourth — one that calls your API — means adding one more object to this file.</p>
+
+  <figure class="diagram">
+    <pre class="mermaid">
+flowchart TD
+    A["App.jsx"] --> LJ["loadJSON / saveJSON<br/><i>adds JSON.parse + stringify</i>"]
+    LJ --> S["store.get / store.set<br/><i>whichever adapter won</i>"]
+    S --> C["Claude storage<br/><i>if available</i>"]
+    S --> L["localStorage<br/><i>the usual one</i>"]
+    S --> M["memory Map<br/><i>last-resort fallback</i>"]
+    S -.-> API["your API adapter<br/><i>the 4th option, not written yet</i>"]
+
+    style S fill:#fdf4e4,stroke:#c9a94f,stroke-width:2px,color:#1f211d
+    style API fill:#d9efe3,stroke:#0f7a52,stroke-dasharray:4 3,color:#1f211d
+    </pre>
+    <figcaption>One interface, interchangeable implementations. App.jsx never learns which one it got.</figcaption>
+  </figure>
+
+  <h3>2. It converts objects to text and back</h3>
+  <p>Browser storage can only hold <em>strings</em>, so <code>saveJSON</code> runs <code>JSON.stringify</code> on the way out and <code>loadJSON</code> runs <code>JSON.parse</code> on the way in. <code>loadJSON</code> also takes a fallback value and wraps everything in <code>try/catch</code>: if the saved text is corrupted, you get the fallback instead of a crashed app. Small detail, but it's why a bad write can't brick the app permanently.</p>
+
+  <h3>3. It saves on a delay — <code>useAutoSave</code></h3>
+  <pre class="code"><code>const timer = setTimeout(() => { <span class="cmt">/* save */</span> }, 350);
+return () => { cancelled = true; clearTimeout(timer); };</code></pre>
+  <p>This is <strong>debouncing</strong>. Every time your data changes, it schedules a save 350&nbsp;ms in the future — and cancels any save that was already scheduled. So typing 20 characters into a field produces <em>one</em> write after you pause, not 20. The <code>report()</code> callback is what drives the "Saving…&nbsp;/&nbsp;Saved&nbsp;/&nbsp;Error" pill in the top-right.</p>
+
+  <div class="callout">
+    <p><strong>Read this before you wire up the API.</strong> The obvious move is to make your API adapter's <code>set()</code> upload the whole array — "PUT all 400 tasks." It works, and it's a trap: you'd re-upload your entire task list every time you tick one checkbox, and two devices editing different tasks would overwrite each other wholesale.</p>
+    <p>The right move is to <strong>delete the five <code>useAutoSave</code> calls in App.jsx</strong> and instead fire one small request from inside each mutation function — <code>toggleTask</code> sends <code>PATCH /tasks/:id</code>, <code>addTask</code> sends <code>POST /tasks</code>, and so on. Each of those functions is already one line and already labelled with the endpoint it should become. Keep this local storage adapter afterwards as an offline cache.</p>
+  </div>
+
+  <!-- ============ transfer.js ============ -->
+  <div class="file">
+    <div class="file-head">
+      <span class="file-name">lib/transfer.js</span>
+      <span class="file-tag">87 lines · the model for your validation</span>
+    </div>
+  </div>
+  <p class="file-role">Export everything to a JSON file, and safely read one back in.</p>
+
+  <p>Export is simple: <code>buildExport()</code> wraps the five collections in a labelled envelope, and <code>downloadJSON()</code> does the browser trick for saving a file (build a Blob, make a temporary URL for it, create an invisible link, click it, throw it away).</p>
+
+  <pre class="code"><code>{
+  "app": "momentum",          <span class="cmt">// so we can reject other apps' files</span>
+  "version": 3,               <span class="cmt">// so future-you can read old files</span>
+  "exportedAt": "2026-08-04T…",
+  "data": { profile, categories, goals, tasks, roadmaps }
+}</code></pre>
+
+  <p><strong><code>parseImport()</code> is the part worth studying.</strong> It assumes the file is hostile and checks, in order: is it valid JSON at all → is it an object → does <code>app</code> say <code>"momentum"</code> → is there a <code>data</code> key → is each collection an actual array. Every failure throws an error with a message written to be shown on screen ("That is not a Momentum backup file"), rather than a raw crash.</p>
+
+  <p>Note the deliberate asymmetry: <strong>strict about shape, forgiving about absence.</strong> A missing <code>roadmaps</code> key becomes an empty array; a <code>roadmaps</code> key holding the number <code>7</code> is an error. And notice who does what — <code>SettingsView</code> only <em>parses</em> the file, then hands the result up; <code>App.jsx</code> decides whether to apply it. Even here the "views never touch storage" rule holds.</p>
+
+  <div class="backend">
+    <b>What this means for your server</b>
+    <p><code>parseImport()</code> is a working model of the mindset your entire API needs: <strong>never trust input</strong>. Every request body gets the same treatment — check the shape, reject clearly, and return a message safe to display. (In Node, libraries like <code>zod</code> do this for you.) Concretely, this envelope is also the easiest first endpoint to build: a <code>POST /api/import</code> that accepts this exact shape lets an existing local user move everything into their new account in one request.</p>
+  </div>
+
+  <!-- ============ seed.js ============ -->
+  <div class="file">
+    <div class="file-head">
+      <span class="file-name">lib/seed.js</span>
+      <span class="file-tag">61 lines · sample data</span>
+    </div>
+  </div>
+  <p class="file-role">The example goals, tasks and roadmap you get if you choose "Load example data" during onboarding.</p>
+
+  <p>Not much logic, but one detail is worth copying. It builds the goals first, then grabs their generated ids to link the tasks:</p>
+  <pre class="code"><code>const react = goals[1].id, gym = goals[2].id;
+newEntity({ title: "Watch one React lesson", goalId: react })</code></pre>
+  <p>That's a <strong>foreign key</strong> — a task doesn't contain its goal, it stores the goal's id and points at it. Same for <code>goal.categoryId</code>. This is exactly how the relationships will work in your database, and it's why parent records must be created before children.</p>
+
+  <!-- ============ auth.js ============ -->
+  <div class="file">
+    <div class="file-head">
+      <span class="file-name">lib/auth.js</span>
+      <span class="file-tag stub">17 lines · unused stub</span>
+    </div>
+  </div>
+  <p class="file-role">Save, read and clear a login token in localStorage. Four small functions — and nothing in the app imports any of them.</p>
+
+  <p>I searched the whole <code>src/</code> folder: <code>saveToken</code>, <code>getToken</code> and <code>isLoggedIn</code> are never called anywhere. It's a placeholder someone left for the backend that doesn't exist yet, and it isn't mentioned in the README's file map either. Nothing is broken — it's just dead code today.</p>
+
+  <p>It'll become real the moment you add login: the server returns a token, <code>saveToken</code> stores it, and every API request sends it back in an <code>Authorization: Bearer &lt;token&gt;</code> header so the server knows whose tasks to return.</p>
+
+  <div class="callout">
+    <p><strong>Worth knowing now:</strong> storing tokens in <code>localStorage</code> is the simplest approach and fine while you're learning, but any script running on your page can read it. The sturdier option is an <code>httpOnly</code> cookie, which JavaScript can't touch at all. Don't let it block you — just know the tradeoff exists before this app has real users.</p>
+  </div>
+
+  <h2>The five data shapes, in one place</h2>
+  <p>This is the payoff of reading lib/ — you can now write your database schema. Every one of these also carries the four envelope fields (<code>id</code>, <code>createdAt</code>, <code>updatedAt</code>, <code>deletedAt</code>) except <code>profile</code>:</p>
+
+  <div class="table-scroll">
+    <table class="mono-col">
+      <tr><th>Record</th><th>Its own fields</th><th>Notes for your schema</th></tr>
+      <tr>
+        <td>task</td>
+        <td><code>title</code>, <code>date</code>, <code>done</code>, <code>effort</code>, <code>goalId</code></td>
+        <td><code>date</code> may be null ("someday"). <code>effort</code> is low/mid/high. <code>goalId</code> may be null — an unlinked task.</td>
+      </tr>
+      <tr>
+        <td>goal</td>
+        <td><code>title</code>, <code>why</code>, <code>categoryId</code>, <code>targetDate</code>, <code>status</code></td>
+        <td><code>status</code> is active/paused/done. <strong>No progress column</strong> — progress is counted from linked tasks at render time.</td>
+      </tr>
+      <tr>
+        <td>category</td>
+        <td><code>name</code>, <code>color</code></td>
+        <td>User-owned and editable, so a real table — not an enum.</td>
+      </tr>
+      <tr>
+        <td>roadmap</td>
+        <td><code>title</code>, <code>phases[]</code></td>
+        <td>Nested two levels deep: phases hold items. See the note below.</td>
+      </tr>
+      <tr>
+        <td>profile</td>
+        <td><code>name</code>, <code>theme</code>, <code>weekStart</code>, <code>onboarded</code></td>
+        <td>A <strong>singleton</strong>, not a list — no id. Becomes columns on your <code>users</code> row.</td>
+      </tr>
+    </table>
+  </div>
+
+  <p>Roadmaps are the one shape that forces a real decision. Right now a roadmap holds phases, and each phase holds items, all as nested objects with their own <code>uid()</code>s but <em>no</em> timestamps or soft delete. In a document database (MongoDB) you can store that nesting exactly as-is. In SQL you'd normally split it into three tables — or keep it as a single <code>JSONB</code> column, which is the closer match to how the app already behaves. Either is defensible; just decide deliberately rather than by accident.</p>
+
+  <h2>Where to start, concretely</h2>
+  <ol class="steps">
+    <li><b>Get the shapes into a database first.</b> Five tables (or collections) matching the table above, each with the four envelope columns. No API yet — just prove you can store the shapes.</li>
+    <li><b>Build read-only endpoints.</b> <code>GET /tasks</code>, <code>GET /goals</code>, and so on, all filtering <code>deleted_at IS NULL</code>. Then add the fourth adapter in <code>storage.js</code> and check the app still renders with server data.</li>
+    <li><b>Add writes one mutation at a time.</b> Start with <code>toggleTask</code> → <code>PATCH /tasks/:id</code>, since it's the smallest. Each mutation in App.jsx is already one line and already labelled with the endpoint it becomes.</li>
+    <li><b>Then, and only then, add login.</b> That's when <code>auth.js</code> wakes up and every record gains a <code>user_id</code>. Doing this last means you debug one problem at a time.</li>
+  </ol>
+
+  <p class="lede" style="margin-top:44px">The short version: <code>entities.js</code> defines your columns, <code>config.js</code> names your tables, <code>dates.js</code> tells you which columns are dates versus timestamps, <code>transfer.js</code> shows you how to validate input — and <code>storage.js</code> is the door you'll walk your API through.</p>
+</div>

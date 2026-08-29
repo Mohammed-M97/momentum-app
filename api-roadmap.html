@@ -1,0 +1,431 @@
+<title>The Momentum API — what to build, in order</title>
+<style>
+  :root {
+    --paper: #101208;
+    --surface: #1a1c14;
+    --surface-2: #22251b;
+    --ink: #eceade;
+    --muted: #8e9080;
+    --line: #2b2e22;
+    --line-strong: #3b3f2f;
+    --accent: #4bbd8a;
+    --accent-soft: #16301f;
+    --amber: #dcbb74;
+    --amber-soft: #2b2515;
+    --rose: #e07a5f;
+    --rose-soft: #33201a;
+    --blue: #7aa7e0;
+    --code-bg: #15170f;
+    --blueprint: #f2f2ea;
+    --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: ui-monospace, "Cascadia Code", Consolas, Menlo, monospace;
+  }
+
+  /* This page is deliberately dark-only, so it must own its background on
+     every element the host might paint — html AND body. */
+  :root { color-scheme: dark; }
+  html { background: var(--paper); }
+  body {
+    font-family: var(--sans); color: var(--ink); line-height: 1.65;
+    margin: 0; padding: 0 20px 90px;
+    background: var(--paper);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 48rem; margin: 0 auto; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: .72rem; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent); margin: 56px 0 10px;
+  }
+  h1 {
+    font-size: clamp(1.9rem, 5vw, 2.5rem); line-height: 1.14;
+    margin: 0 0 14px; letter-spacing: -0.02em; text-wrap: balance;
+  }
+  .lede { font-size: 1.05rem; color: var(--muted); margin: 0 0 8px; }
+
+  h2 {
+    font-size: 1.28rem; letter-spacing: -0.01em; margin: 56px 0 12px;
+    padding-top: 26px; border-top: 1px solid var(--line); text-wrap: balance;
+  }
+  h3 { font-size: 1rem; margin: 24px 0 8px; }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  strong { font-weight: 650; color: #fbfaf2; }
+
+  code {
+    font-family: var(--mono); font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 5px; padding: .1em .35em; color: #d7d5c4;
+  }
+  pre.code {
+    font-family: var(--mono); font-size: .79rem; line-height: 1.62;
+    background: var(--code-bg); border: 1px solid var(--line);
+    border-radius: 10px; padding: 15px 17px; margin: 14px 0; overflow-x: auto;
+    color: #d7d5c4;
+  }
+  pre.code code { background: none; border: none; padding: 0; font-size: 1em; }
+  .cmt { color: #6f7263; }
+  .kw { color: var(--accent); }
+  .str { color: var(--amber); }
+
+  /* blueprint inset for diagrams — deliberately light, like a drawing on a dark desk */
+  .diagram {
+    background: var(--blueprint); border: 1px solid var(--line-strong);
+    border-radius: 12px; padding: 16px; margin: 20px 0; overflow-x: auto;
+  }
+  .diagram figcaption { font-size: .79rem; color: #6a6c5c; text-align: center; padding-top: 8px; }
+  figure { margin: 20px 0; }
+
+  table { border-collapse: collapse; width: 100%; font-size: .89rem; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .7rem; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); font-weight: 600; }
+  .panel {
+    overflow-x: auto; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 12px; padding: 4px 16px 6px; margin: 18px 0;
+  }
+  .panel table tr:last-child td { border-bottom: none; }
+
+  /* HTTP method badges */
+  .m {
+    font-family: var(--mono); font-size: .68rem; font-weight: 700;
+    letter-spacing: .06em; padding: 2px 7px; border-radius: 4px;
+    border: 1px solid; display: inline-block; min-width: 52px; text-align: center;
+  }
+  .m.get { color: var(--accent); border-color: #2c6b4c; background: var(--accent-soft); }
+  .m.post { color: var(--blue); border-color: #35506f; background: #16202c; }
+  .m.patch { color: var(--amber); border-color: #6a5a2e; background: var(--amber-soft); }
+  .m.del { color: var(--rose); border-color: #6d3a2c; background: var(--rose-soft); }
+  .route { font-family: var(--mono); font-size: .82rem; white-space: nowrap; color: #d7d5c4; }
+  td.route-cell { white-space: nowrap; }
+
+  .note {
+    background: var(--amber-soft); border: 1px solid #4a3f24;
+    border-radius: 10px; padding: 13px 16px; margin: 16px 0;
+    color: #e4c88c; font-size: .93rem;
+  }
+  .note p { margin: 0; }
+  .note p + p { margin-top: 8px; }
+  .note strong { color: #f3ddaa; }
+
+  .stop {
+    background: var(--rose-soft); border: 1px solid #6d3a2c;
+    border-radius: 10px; padding: 13px 16px; margin: 16px 0;
+    color: #edad96; font-size: .93rem;
+  }
+  .stop p { margin: 0; }
+  .stop strong { color: #f5c6b5; }
+
+  .good {
+    background: var(--accent-soft); border: 1px solid #2c6b4c;
+    border-radius: 10px; padding: 13px 16px; margin: 16px 0;
+    color: #a5dcc0; font-size: .93rem;
+  }
+  .good p { margin: 0; }
+  .good strong { color: #c9ecda; }
+
+  /* step spine */
+  .step { position: relative; padding-left: 60px; margin-top: 34px; }
+  .step::before {
+    content: attr(data-n); position: absolute; left: 0; top: 0;
+    width: 40px; height: 40px; border-radius: 8px;
+    background: var(--surface-2); color: var(--accent);
+    border: 1px solid var(--line-strong);
+    font-weight: 700; font-size: .95rem; font-family: var(--mono);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step::after {
+    content: ""; position: absolute; left: 20px; top: 48px; bottom: -34px;
+    width: 1px; background: var(--line-strong);
+  }
+  .step:last-of-type::after { display: none; }
+  .step > h3 { margin: 7px 0 3px; font-size: 1.08rem; }
+  .step-meta { font-family: var(--mono); font-size: .72rem; letter-spacing: .05em; color: var(--muted); margin: 0 0 12px; }
+
+  .tree {
+    font-family: var(--mono); font-size: .8rem; line-height: 1.72;
+    background: var(--code-bg); border: 1px solid var(--line);
+    border-radius: 10px; padding: 16px 18px; margin: 16px 0; overflow-x: auto;
+    color: #c9c8b6;
+  }
+  .tree .c { color: #6f7263; }
+  .tree .f { color: var(--accent); }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Momentum · Part 4 — server side</p>
+  <h1>The Momentum API: every piece you need to build, and the order to build it</h1>
+  <p class="lede">Part 3 was the whole journey. This is the server itself — the folders, the five models, every endpoint mapped to the exact function in your app that calls it, and the beginner traps that cost people a full evening each. One user, one password, hosted somewhere real.</p>
+
+  <h2>What a backend actually is</h2>
+  <p>Strip away the jargon and a server is one loop: <strong>a request arrives, it passes through a line of checkpoints, something reads or writes the database, and a response goes back.</strong> Express calls those checkpoints <em>middleware</em>, and they run in the order you register them — which is the single most useful thing to understand about Express.</p>
+
+  <figure class="diagram">
+    <pre class="mermaid">
+flowchart LR
+    R["📱 request<br/>PATCH /api/tasks/abc"] --> C["cors<br/><i>is this origin allowed?</i>"]
+    C --> J["express.json<br/><i>turn the body into an object</i>"]
+    J --> A["requireAuth<br/><i>is the token valid?</i>"]
+    A --> V["validate<br/><i>is the body shaped right?</i>"]
+    V --> H["route handler<br/><i>your actual logic</i>"]
+    H --> M["mongoose model"]
+    M --> DB[("MongoDB")]
+    H --> RES["📤 response<br/>JSON"]
+    A -.->|"no token"| E401["401 Unauthorized"]
+    V -.->|"bad body"| E400["400 Bad Request"]
+
+    style A fill:#d9efe3,stroke:#0f7a52,stroke-width:2px,color:#1f211d
+    style H fill:#d9efe3,stroke:#0f7a52,stroke-width:2px,color:#1f211d
+    style E401 fill:#fbe4dd,stroke:#c0492f,color:#1f211d
+    style E400 fill:#fbe4dd,stroke:#c0492f,color:#1f211d
+    style DB fill:#fdf4e4,stroke:#c9a94f,color:#1f211d
+    </pre>
+    <figcaption>Every request walks this line. Register middleware in the wrong order and auth silently never runs.</figcaption>
+  </figure>
+
+  <h2>Something in your code that changes the plan</h2>
+  <p>Reading how <code>App.jsx</code> hands data to the screens, there's a split you should know about before you start, because it affects two of your five collections.</p>
+  <p><strong>Tasks and goals follow the pattern the README promises.</strong> Each change is its own small named function, already labelled with the endpoint it becomes — <code>toggleTask</code>, <code>addTask</code>, <code>setStatus</code>, and so on. Nine of them. Converting those to API calls really is mechanical.</p>
+  <p><strong>Categories, roadmaps and profile don't.</strong> Look at what gets passed down:</p>
+  <pre class="code"><code>&lt;RoadmapView   roadmaps={roadmaps} <span class="kw">onChange={setRoadmaps}</span> … /&gt;
+&lt;CategoryModal categories={categories} <span class="kw">onChange={setCategories}</span> … /&gt;
+&lt;SettingsView  profile={profile} <span class="kw">setProfile={setProfile}</span> … /&gt;</code></pre>
+  <p>Those are the raw React state setters handed straight to the view. So when you add a phase to a roadmap, <code>RoadmapView</code> builds an entirely new roadmaps array itself and passes it back. There's no <code>addPhase</code> function in <code>App.jsx</code> to hang an API call on — the app never learns <em>what</em> changed, only that something did.</p>
+  <div class="note">
+    <p><strong>What this means practically:</strong> you'll need a small refactor before those three can talk to an API — pull named mutations up into <code>App.jsx</code> (<code>addPhase</code>, <code>toggleItem</code>, <code>renameCategory</code>, <code>updateProfile</code>…) so each one has a place to put its request. It's not hard, it's just work nobody warned you about.</p>
+    <p>Do it <strong>collection by collection, right before</strong> you wire that collection up — not all at once up front. And do tasks and goals first, since they're already ready and they're 90% of what you actually use.</p>
+  </div>
+
+  <h2>The folder layout</h2>
+  <p>A separate project living next to <code>momentum-app</code>. Small, but split so no file gets big enough to be scary:</p>
+  <div class="tree">momentum-api/
+├─ <span class="f">.env</span>                 <span class="c">secrets — never committed</span>
+├─ <span class="f">.gitignore</span>           <span class="c">.env + node_modules, on day one</span>
+├─ package.json
+├─ src/
+│  ├─ <span class="f">server.js</span>         <span class="c">wires everything together, starts listening</span>
+│  ├─ <span class="f">db.js</span>             <span class="c">the mongoose connection</span>
+│  ├─ models/          <span class="c">what the data looks like</span>
+│  │  ├─ User.js       <span class="c">← your password AND your profile</span>
+│  │  ├─ Task.js
+│  │  ├─ Goal.js
+│  │  ├─ Category.js
+│  │  └─ Roadmap.js
+│  ├─ routes/          <span class="c">one file per collection</span>
+│  │  ├─ auth.js       <span class="c">login</span>
+│  │  ├─ tasks.js  goals.js  categories.js
+│  │  ├─ roadmaps.js  profile.js
+│  │  └─ transfer.js   <span class="c">import / export / erase</span>
+│  ├─ middleware/
+│  │  ├─ requireAuth.js
+│  │  └─ errorHandler.js
+│  └─ schemas/         <span class="c">zod shapes for validating bodies</span>
+└─ scripts/
+   ├─ <span class="f">createUser.js</span>     <span class="c">run once, sets your password</span>
+   └─ <span class="f">importBackup.js</span>   <span class="c">loads your exported JSON</span></div>
+
+  <h2>The five models</h2>
+  <p>You already know these shapes from <code>lib/entities.js</code>. Every collection except the user carries the same four envelope fields:</p>
+
+  <pre class="code"><code><span class="cmt">// the envelope, on every model</span>
+id:        { type: String, required: <span class="kw">true</span>, unique: <span class="kw">true</span>, index: <span class="kw">true</span> },
+createdAt: { type: String },   <span class="cmt">// ISO timestamp</span>
+updatedAt: { type: String },
+deletedAt: { type: String, default: <span class="kw">null</span> },   <span class="cmt">// null = alive</span>
+userId:    { type: String, index: <span class="kw">true</span> },</code></pre>
+
+  <div class="panel">
+    <table>
+      <tr><th>Model</th><th>Its own fields</th><th>Watch out for</th></tr>
+      <tr>
+        <td><code>User</code></td>
+        <td><code>passwordHash</code>, <code>name</code>, <code>theme</code>, <code>weekStart</code>, <code>onboarded</code></td>
+        <td>Profile is a singleton, so it <em>is</em> the user row — don't make two collections. Never a <code>password</code> field, only the hash.</td>
+      </tr>
+      <tr>
+        <td><code>Task</code></td>
+        <td><code>title</code>, <code>date</code>, <code>done</code>, <code>effort</code>, <code>goalId</code></td>
+        <td><code>date</code> is a <strong>String</strong>, not a Date. <code>goalId</code> and <code>date</code> can both be null.</td>
+      </tr>
+      <tr>
+        <td><code>Goal</code></td>
+        <td><code>title</code>, <code>why</code>, <code>categoryId</code>, <code>targetDate</code>, <code>status</code></td>
+        <td>No progress field, ever. <code>status</code> is <code>active|paused|done</code>.</td>
+      </tr>
+      <tr>
+        <td><code>Category</code></td>
+        <td><code>name</code>, <code>color</code></td>
+        <td>Created for you at signup — the four defaults from <code>config.js</code>.</td>
+      </tr>
+      <tr>
+        <td><code>Roadmap</code></td>
+        <td><code>title</code>, <code>phases[]</code></td>
+        <td>Phases and items nest inside as plain objects with their own ids and no timestamps. Store the nesting as-is.</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="stop">
+    <p><strong>The <code>id</code> trap, and it will get you.</strong> Your app generates its own string ids via <code>uid()</code> and every record refers to others by them — <code>task.goalId</code>, <code>goal.categoryId</code>. Mongo, meanwhile, adds its own <code>_id</code> ObjectId to everything. If you let the frontend start seeing <code>_id</code>, every one of those links breaks.</p>
+    <p>Keep <code>id</code> as a real indexed field, and strip Mongo's extras on the way out so the frontend never knows the difference:</p>
+  </div>
+  <pre class="code"><code>schema.set(<span class="str">"toJSON"</span>, {
+  transform: (doc, ret) =&gt; { <span class="kw">delete</span> ret._id; <span class="kw">delete</span> ret.__v; <span class="kw">return</span> ret; }
+});</code></pre>
+  <p>Do that once per model and your existing screens keep working untouched.</p>
+
+  <h2>Every endpoint, and who calls it</h2>
+  <p>This is the whole API. The right-hand column is the function in <code>App.jsx</code> that will make the call, so you can work through it line by line.</p>
+
+  <h3>Tasks — ready to go</h3>
+  <div class="panel">
+    <table>
+      <tr><th>Method</th><th>Route</th><th>Called by</th></tr>
+      <tr><td><span class="m get">GET</span></td><td class="route-cell"><span class="route">/api/tasks</span></td><td>initial load</td></tr>
+      <tr><td><span class="m post">POST</span></td><td class="route-cell"><span class="route">/api/tasks</span></td><td><code>addTask</code></td></tr>
+      <tr><td><span class="m patch">PATCH</span></td><td class="route-cell"><span class="route">/api/tasks/:id</span></td><td><code>toggleTask</code> and <code>saveTask</code></td></tr>
+      <tr><td><span class="m del">DELETE</span></td><td class="route-cell"><span class="route">/api/tasks/:id</span></td><td><code>softDeleteTask</code> — sets <code>deletedAt</code>, removes nothing</td></tr>
+    </table>
+  </div>
+
+  <h3>Goals — ready to go, with one interesting case</h3>
+  <div class="panel">
+    <table>
+      <tr><th>Method</th><th>Route</th><th>Called by</th></tr>
+      <tr><td><span class="m get">GET</span></td><td class="route-cell"><span class="route">/api/goals</span></td><td>initial load</td></tr>
+      <tr><td><span class="m post">POST</span></td><td class="route-cell"><span class="route">/api/goals</span></td><td><code>saveGoal</code>, create branch</td></tr>
+      <tr><td><span class="m patch">PATCH</span></td><td class="route-cell"><span class="route">/api/goals/:id</span></td><td><code>saveGoal</code> edit branch, and <code>setStatus</code></td></tr>
+      <tr><td><span class="m del">DELETE</span></td><td class="route-cell"><span class="route">/api/goals/:id?cascade=true</span></td><td><code>askDeleteGoal</code> — see below</td></tr>
+    </table>
+  </div>
+  <p>Deleting a goal is the one endpoint that isn't a one-liner. The app asks whether to delete the linked tasks too, so the server has to do <strong>two</strong> things in one request: soft-delete the goal, then either soft-delete its tasks (<code>cascade=true</code>) or unlink them by setting <code>goalId</code> to null. Get both branches right — the unlink case is the one people forget, and it strands tasks pointing at a goal that's gone.</p>
+
+  <h3>Categories, roadmaps, profile — refactor first</h3>
+  <div class="panel">
+    <table>
+      <tr><th>Method</th><th>Route</th><th>Notes</th></tr>
+      <tr><td><span class="m get">GET</span></td><td class="route-cell"><span class="route">/api/categories</span></td><td></td></tr>
+      <tr><td><span class="m post">POST</span></td><td class="route-cell"><span class="route">/api/categories</span></td><td></td></tr>
+      <tr><td><span class="m patch">PATCH</span></td><td class="route-cell"><span class="route">/api/categories/:id</span></td><td>rename or recolor</td></tr>
+      <tr><td><span class="m del">DELETE</span></td><td class="route-cell"><span class="route">/api/categories/:id</span></td><td>decide what happens to goals using it</td></tr>
+      <tr><td><span class="m get">GET</span></td><td class="route-cell"><span class="route">/api/roadmaps</span></td><td></td></tr>
+      <tr><td><span class="m post">POST</span></td><td class="route-cell"><span class="route">/api/roadmaps</span></td><td></td></tr>
+      <tr><td><span class="m patch">PUT</span></td><td class="route-cell"><span class="route">/api/roadmaps/:id</span></td><td>replace the whole document — see below</td></tr>
+      <tr><td><span class="m del">DELETE</span></td><td class="route-cell"><span class="route">/api/roadmaps/:id</span></td><td></td></tr>
+      <tr><td><span class="m get">GET</span></td><td class="route-cell"><span class="route">/api/profile</span></td><td>reads the user row</td></tr>
+      <tr><td><span class="m patch">PATCH</span></td><td class="route-cell"><span class="route">/api/profile</span></td><td>name, theme, weekStart</td></tr>
+    </table>
+  </div>
+  <p><strong>Roadmaps are the exception to "one small request per change."</strong> Phases and items are nested objects without timestamps or soft delete, so there's nothing sensible to PATCH individually. Sending the whole roadmap document on every edit is the right call here — they're small, and you only have one or two. Accept the inconsistency; the alternative is inventing sub-resources for data that isn't shaped that way.</p>
+  <p>Deleting a category is a genuine design decision the app doesn't currently make for you: goals store <code>categoryId</code>, so removing a category leaves them pointing at nothing. Either block the delete while goals still use it, or null out those <code>categoryId</code>s. Pick one deliberately rather than discovering it later.</p>
+
+  <h3>Auth and bulk</h3>
+  <div class="panel">
+    <table>
+      <tr><th>Method</th><th>Route</th><th>Notes</th></tr>
+      <tr><td><span class="m post">POST</span></td><td class="route-cell"><span class="route">/api/login</span></td><td>password in, token out. <strong>The only unprotected route.</strong></td></tr>
+      <tr><td><span class="m get">GET</span></td><td class="route-cell"><span class="route">/api/me</span></td><td>is my saved token still valid? Called on app start.</td></tr>
+      <tr><td><span class="m get">GET</span></td><td class="route-cell"><span class="route">/api/bootstrap</span></td><td>all five collections in one response</td></tr>
+      <tr><td><span class="m post">POST</span></td><td class="route-cell"><span class="route">/api/import</span></td><td>accepts the <code>transfer.js</code> envelope as-is</td></tr>
+      <tr><td><span class="m post">POST</span></td><td class="route-cell"><span class="route">/api/reset</span></td><td><code>askReset</code> — erase everything</td></tr>
+    </table>
+  </div>
+  <div class="good">
+    <p><strong>Build <code>/api/bootstrap</code> and use it.</strong> Your app loads five collections at startup. Five separate requests over phone data is five round trips before anything renders; one request returning all five is noticeably faster on mobile — which is exactly where you'll be using this. The individual GETs are still worth having for refreshes.</p>
+  </div>
+
+  <h2>The password, concretely</h2>
+  <p>You're the only user, so skip signup, email verification, password reset, and roles. Four pieces:</p>
+
+  <pre class="code"><code><span class="cmt">// scripts/createUser.js — you run this ONCE, from your terminal</span>
+<span class="kw">const</span> hash = <span class="kw">await</span> bcrypt.hash(process.env.INITIAL_PASSWORD, <span class="str">10</span>);
+<span class="kw">await</span> User.create({ id: uid(), passwordHash: hash, name: <span class="str">"…"</span>, weekStart: <span class="str">6</span> });
+
+<span class="cmt">// routes/auth.js</span>
+router.post(<span class="str">"/login"</span>, <span class="kw">async</span> (req, res) =&gt; {
+  <span class="kw">const</span> user = <span class="kw">await</span> User.findOne();
+  <span class="kw">const</span> ok = user &amp;&amp; <span class="kw">await</span> bcrypt.compare(req.body.password, user.passwordHash);
+  <span class="kw">if</span> (!ok) <span class="kw">return</span> res.status(<span class="str">401</span>).json({ error: <span class="str">"Wrong password"</span> });
+  <span class="kw">const</span> token = jwt.sign({ uid: user.id }, process.env.JWT_SECRET, { expiresIn: <span class="str">"30d"</span> });
+  res.json({ token });
+});
+
+<span class="cmt">// middleware/requireAuth.js — guards every other route</span>
+<span class="kw">const</span> header = req.headers.authorization || <span class="str">""</span>;
+<span class="kw">const</span> token = header.startsWith(<span class="str">"Bearer "</span>) ? header.slice(<span class="str">7</span>) : <span class="kw">null</span>;
+<span class="kw">if</span> (!token) <span class="kw">return</span> res.status(<span class="str">401</span>).json({ error: <span class="str">"Not signed in"</span> });
+<span class="kw">try</span> { req.user = jwt.verify(token, process.env.JWT_SECRET); next(); }
+<span class="kw">catch</span> { res.status(<span class="str">401</span>).json({ error: <span class="str">"Session expired"</span> }); }</code></pre>
+
+  <p>Then in <code>server.js</code>, mount it once so you can't forget a route:</p>
+  <pre class="code"><code>app.use(<span class="str">"/api/login"</span>, authRoutes);      <span class="cmt">// open</span>
+app.use(<span class="str">"/api"</span>, requireAuth);            <span class="cmt">// everything after this line is protected</span>
+app.use(<span class="str">"/api/tasks"</span>, taskRoutes);
+app.use(<span class="str">"/api/goals"</span>, goalRoutes);       <span class="cmt">// …and so on</span></code></pre>
+
+  <div class="stop">
+    <p><strong>Rate-limit the login route.</strong> It's the one door open to the entire internet, and without a limit someone can try passwords as fast as your server answers. <code>express-rate-limit</code> capping it at a handful of attempts per fifteen minutes is about six lines and closes the whole problem. Use a long random <code>JWT_SECRET</code> — <code>openssl rand -hex 32</code> — and keep it in <code>.env</code>.</p>
+  </div>
+
+  <h2>Four traps that each cost an evening</h2>
+  <ol>
+    <li><strong>Forgetting <code>app.use(express.json())</code>.</strong> Without it <code>req.body</code> is <code>undefined</code> on every POST and the error tells you nothing useful. Register it before your routes.</li>
+    <li><strong>Async errors vanishing.</strong> In Express 4, an <code>await</code> that rejects inside a handler isn't caught — the request just hangs forever with no error printed. Wrap handlers in try/catch, or install <code>express-async-errors</code> once at the top of <code>server.js</code>. Express 5 fixes this natively.</li>
+    <li><strong>Forgetting <code>deletedAt: null</code> in a query.</strong> Miss it in one place and deleted tasks quietly reappear in that one screen. Consider a tiny shared helper so the filter is never hand-typed.</li>
+    <li><strong>Atlas IP allowlist.</strong> Your hosted server's IP isn't fixed, so a default allowlist blocks it and you get a connection timeout that looks like a code bug. Allow access from anywhere and rely on the database password.</li>
+  </ol>
+
+  <h2>Build order for the server</h2>
+  <p>Same principle as before: every step ends with something you can actually check.</p>
+
+  <div class="step" data-n="1">
+    <h3>Skeleton</h3>
+    <p class="step-meta">an evening</p>
+    <p><code>npm init</code>, install <code>express cors dotenv</code>, one <code>GET /health</code> route, <code>.gitignore</code> with <code>.env</code> in it before the first commit.</p>
+  </div>
+
+  <div class="step" data-n="2">
+    <h3>Database connection</h3>
+    <p class="step-meta">an evening</p>
+    <p>Free Atlas cluster, connection string in <code>.env</code>, <code>mongoose.connect</code> in <code>db.js</code>. Print a clear message on success and on failure.</p>
+  </div>
+
+  <div class="step" data-n="3">
+    <h3>Models, then your real data</h3>
+    <p class="step-meta">a weekend</p>
+    <p>Write the five schemas with the <code>toJSON</code> transform. Then run <code>createUser.js</code> to set your password, and <code>importBackup.js</code> to load the JSON you exported from Settings → Backup. Look inside Atlas and see your own goals sitting there.</p>
+  </div>
+
+  <div class="step" data-n="4">
+    <h3>All the GET routes</h3>
+    <p class="step-meta">an evening</p>
+    <p>Five collections plus <code>/api/bootstrap</code>, every one filtering <code>deletedAt: null</code>. Test them in your browser or Postman — no frontend involved yet.</p>
+  </div>
+
+  <div class="step" data-n="5">
+    <h3>Task writes</h3>
+    <p class="step-meta">a weekend</p>
+    <p>POST, PATCH and the soft DELETE for tasks only. Get validation and the error shape right here, on one small resource, because you're about to repeat this pattern four more times.</p>
+  </div>
+
+  <div class="step" data-n="6">
+    <h3>Goals, then the other three</h3>
+    <p class="step-meta">a weekend</p>
+    <p>Goals including the cascade/unlink branch. Then categories, roadmaps and profile — refactoring each one's frontend mutations out of the view as you reach it.</p>
+  </div>
+
+  <div class="step" data-n="7">
+    <h3>Lock the door</h3>
+    <p class="step-meta">a weekend · before anything is public</p>
+    <p>bcrypt, JWT, <code>requireAuth</code> mounted so it covers everything but login, rate limiting on login. Verify by requesting <code>/api/tasks</code> with no token and getting a 401.</p>
+  </div>
+
+  <div class="step" data-n="8">
+    <h3>Harden, then ship</h3>
+    <p class="step-meta">an evening</p>
+    <p>A single error-handling middleware returning a consistent <code>{ error }</code> shape, <code>helmet</code> for security headers, and <code>cors</code> restricted to your real frontend URL rather than <code>*</code>.</p>
+  </div>
+
+  <p class="lede" style="margin-top:46px">Roughly five or six weekends of server work, and it slots into phases 1–5 of the main roadmap. Start with tasks and finish tasks completely — once one resource works end to end, the other four are the same shape with different fields.</p>
+</div>

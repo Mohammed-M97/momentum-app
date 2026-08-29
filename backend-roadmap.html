@@ -1,0 +1,310 @@
+<title>Momentum backend roadmap — local app to your own server</title>
+<style>
+  :root {
+    --paper: #f1f1ec; --surface: #ffffff; --surface-2: #f7f7f3;
+    --ink: #1f211d; --muted: #71725f; --line: #e4e3da; --line-strong: #d3d2c6;
+    --accent: #0f7a52; --accent-soft: #d9efe3;
+    --warn-bg: #fdf4e4; --warn-line: #efdcb5; --warn-ink: #8a6212;
+    --danger: #c0492f; --danger-soft: #fbe4dd;
+    --code-bg: #f7f7f3; --diagram-paper: #fdfdfb;
+    --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: ui-monospace, "Cascadia Code", Consolas, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #14150f; --surface: #1d1e18; --surface-2: #24261e;
+      --ink: #eceade; --muted: #979787; --line: #2f3128; --line-strong: #3d4034;
+      --accent: #4bbd8a; --accent-soft: #1c3a2c;
+      --warn-bg: #2e2717; --warn-line: #4a3f24; --warn-ink: #dcbb74;
+      --danger: #e07a5f; --danger-soft: #3a221b;
+      --code-bg: #191a14; --diagram-paper: #f4f4ef;
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #f1f1ec; --surface: #ffffff; --surface-2: #f7f7f3;
+    --ink: #1f211d; --muted: #71725f; --line: #e4e3da; --line-strong: #d3d2c6;
+    --accent: #0f7a52; --accent-soft: #d9efe3;
+    --warn-bg: #fdf4e4; --warn-line: #efdcb5; --warn-ink: #8a6212;
+    --danger: #c0492f; --danger-soft: #fbe4dd;
+    --code-bg: #f7f7f3; --diagram-paper: #fdfdfb;
+  }
+  :root[data-theme="dark"] {
+    --paper: #14150f; --surface: #1d1e18; --surface-2: #24261e;
+    --ink: #eceade; --muted: #979787; --line: #2f3128; --line-strong: #3d4034;
+    --accent: #4bbd8a; --accent-soft: #1c3a2c;
+    --warn-bg: #2e2717; --warn-line: #4a3f24; --warn-ink: #dcbb74;
+    --danger: #e07a5f; --danger-soft: #3a221b;
+    --code-bg: #191a14; --diagram-paper: #f4f4ef;
+  }
+
+  html { background: var(--paper); }
+  body { font-family: var(--sans); color: var(--ink); line-height: 1.65; margin: 0; padding: 0 20px 80px; }
+  .wrap { max-width: 47rem; margin: 0 auto; }
+
+  .eyebrow { font-size: .72rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 56px 0 6px; }
+  h1 { font-size: clamp(1.9rem, 5vw, 2.5rem); line-height: 1.15; margin: 0 0 12px; letter-spacing: -0.02em; text-wrap: balance; }
+  .lede { font-size: 1.06rem; color: var(--muted); margin: 0 0 8px; }
+
+  h2 { font-size: 1.3rem; letter-spacing: -0.01em; margin: 54px 0 12px; padding-top: 26px; border-top: 1px solid var(--line); text-wrap: balance; }
+  h3 { font-size: 1rem; margin: 22px 0 8px; }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  strong { font-weight: 650; }
+
+  code { font-family: var(--mono); font-size: .86em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; padding: .1em .35em; }
+  pre.code { font-family: var(--mono); font-size: .8rem; line-height: 1.6; background: var(--code-bg); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 14px 0; overflow-x: auto; }
+  pre.code code { background: none; border: none; padding: 0; font-size: 1em; }
+  .cmt { color: var(--muted); }
+
+  .diagram { background: var(--diagram-paper); border: 1px solid var(--line-strong); border-radius: 12px; padding: 14px; margin: 18px 0; overflow-x: auto; }
+  .diagram figcaption { font-size: .8rem; color: #71725f; text-align: center; padding-top: 6px; }
+  figure { margin: 18px 0; }
+
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .table-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px 16px 6px; margin: 18px 0; }
+
+  /* phase spine */
+  .phase { position: relative; padding-left: 62px; margin-top: 38px; }
+  .phase::before {
+    content: attr(data-n); position: absolute; left: 0; top: 0;
+    width: 42px; height: 42px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    border: 1.5px solid var(--accent);
+    font-weight: 700; font-size: 1rem; font-family: var(--mono);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .phase::after {
+    content: ""; position: absolute; left: 20.5px; top: 50px; bottom: -38px;
+    width: 1.5px; background: var(--line-strong);
+  }
+  .phase:last-of-type::after { display: none; }
+  .phase > h3 { margin: 8px 0 4px; font-size: 1.12rem; letter-spacing: -0.01em; }
+  .phase-meta { font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+  .phase.critical::before { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+
+  .done {
+    background: var(--surface); border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 10px 10px 0; padding: 11px 15px; margin: 14px 0; font-size: .92rem;
+  }
+  .done p { margin: 0; }
+  .done b { display: block; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin-bottom: 3px; }
+
+  .callout { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 10px; padding: 13px 16px; margin: 16px 0; color: var(--warn-ink); font-size: .93rem; }
+  .callout p { margin: 0; }
+  .callout p + p { margin-top: 8px; }
+  .stop { background: var(--danger-soft); border: 1px solid var(--danger); border-radius: 10px; padding: 13px 16px; margin: 16px 0; font-size: .93rem; }
+  .stop p { margin: 0; }
+  .stop b { color: var(--danger); }
+
+  .stage-label {
+    font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); margin: 52px 0 -10px; padding-top: 22px; border-top: 2px solid var(--line-strong);
+  }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Momentum · Part 3 — the build plan</p>
+  <h1>From a browser-only app to your own server, in nine steps</h1>
+  <p class="lede">Built for your actual situation: one user — you — a hosted server you own, a password to get in, and the same data on your laptop and your phone. The ordering is the important part. Every phase below ends with a working app, so you're never staring at a broken project wondering which of six changes broke it.</p>
+
+  <h2>The shape of the whole thing</h2>
+  <figure class="diagram">
+    <pre class="mermaid">
+flowchart TD
+    P0["0 · Fix the data-loss bug<br/><i>before any server exists</i>"]
+    P1["1 · Backend skeleton<br/><i>Node + Express + Mongo, on your PC</i>"]
+    P2["2 · Move your real data in<br/><i>using the export file you already have</i>"]
+    P3["3 · Read from the server<br/><i>the 4th storage adapter</i>"]
+    P4["4 · Write to the server<br/><i>one mutation at a time</i>"]
+    P5["5 · Password + login"]
+    P6["6 · Deploy it all"]
+    P7["7 · Make two devices agree"]
+    P8["8 · Phone home-screen app"]
+
+    P0 --> P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7 --> P8
+
+    S1["🔒 never deploy before this"] -.-> P5
+
+    style P0 fill:#fbe4dd,stroke:#c0492f,stroke-width:2px,color:#1f211d
+    style P5 fill:#d9efe3,stroke:#0f7a52,stroke-width:2px,color:#1f211d
+    style P6 fill:#d9efe3,stroke:#0f7a52,stroke-width:2px,color:#1f211d
+    style S1 fill:#fdf4e4,stroke:#c9a94f,color:#1f211d
+    </pre>
+    <figcaption>Everything through step 5 happens on your own computer. Nothing goes public until the password exists.</figcaption>
+  </figure>
+
+  <h2>The stack I'd pick for you</h2>
+  <p>Your own roadmap inside the app already says <em>Node.js basics → Express and REST APIs → MongoDB essentials → connect frontend to backend</em>. That's a good plan and I'd stick to it — not because it's the only option, but because it means <strong>no new language</strong>. It's JavaScript on both sides, so everything you learn doing this transfers straight back to the code you already understand.</p>
+
+  <div class="table-scroll">
+    <table>
+      <tr><th>Piece</th><th>Pick</th><th>Why</th></tr>
+      <tr><td>Server</td><td>Node + Express</td><td>Same language as your app. Express is the smallest thing that does the job.</td></tr>
+      <tr><td>Database</td><td>MongoDB (Atlas free tier)</td><td>Your roadmap already names it, and it stores nested data natively — your <code>roadmap → phases → items</code> shape drops straight in with no redesign.</td></tr>
+      <tr><td>Passwords</td><td><code>bcrypt</code></td><td>Turns your password into a hash that can't be reversed. Never store the password itself.</td></tr>
+      <tr><td>Login token</td><td><code>jsonwebtoken</code> (JWT)</td><td>A signed string proving it's you. <code>lib/auth.js</code> is already written for exactly this.</td></tr>
+      <tr><td>Validation</td><td><code>zod</code></td><td>Does what <code>parseImport()</code> does by hand, for every endpoint.</td></tr>
+    </table>
+  </div>
+
+  <p>The honest tradeoff on the database: <strong>Postgres</strong> is more common in job listings, and if the goal is your CV it's the more valuable thing to learn. Mongo is the faster path to a working app <em>and</em> the better fit for this particular data shape. Either is a fine answer — pick Mongo if you want momentum, Postgres if you want the resume line.</p>
+
+  <p class="stage-label">Stage one · on your own computer</p>
+
+  <div class="phase critical" data-n="0">
+    <h3>Fix the data-loss bug</h3>
+    <p class="phase-meta">~30 minutes · do this before writing any server code</p>
+    <p>Right now <code>loadJSON</code> catches every error and returns an empty list, and <code>App.jsx</code> then sets <code>hydrated = true</code> without checking whether the load worked. The moment your data lives across a network, one dropped connection means: load fails → app thinks you have zero tasks → autosave saves that emptiness over everything.</p>
+    <p>The fix is to let load failures be visible instead of silent. Roughly:</p>
+    <pre class="code"><code><span class="cmt">// storage.js — separate "nothing saved yet" from "the read failed"</span>
+export async function loadJSON(key, fallback) {
+  const raw = await store.get(key);        <span class="cmt">// let errors escape</span>
+  if (raw === null || raw === undefined) return fallback;
+  try { return JSON.parse(raw) ?? fallback; }
+  catch { return fallback; }               <span class="cmt">// corrupt text is still safe</span>
+}
+
+<span class="cmt">// App.jsx — only mark hydrated if the load actually succeeded</span>
+try {
+  const r = await Promise.all([ <span class="cmt">…the five loads…</span> ]);
+  <span class="cmt">…setState…</span>
+  setHydrated(true);
+} catch (err) {
+  setLoadError("Could not load your data. Reload to try again.");
+  <span class="cmt">// hydrated stays false, so autosave never fires</span>
+}</code></pre>
+    <p>Then show that error somewhere in the UI instead of rendering an empty app. Do this now, while everything is still local and easy to test.</p>
+    <div class="done"><b>Done when</b><p>You can break the load on purpose and the app says so, rather than showing you a cheerful empty task list.</p></div>
+  </div>
+
+  <div class="phase" data-n="1">
+    <h3>Backend skeleton — running on your PC</h3>
+    <p class="phase-meta">a weekend · nothing about the app changes yet</p>
+    <p>A brand-new folder next to <code>momentum-app</code>. Don't touch the frontend at all in this phase.</p>
+    <ul>
+      <li><code>npm init</code>, install <code>express</code>, <code>mongoose</code>, <code>cors</code>, <code>dotenv</code>.</li>
+      <li>A free MongoDB Atlas cluster, with the connection string in a <code>.env</code> file.</li>
+      <li>One route: <code>GET /health</code> returning <code>{ ok: true }</code>.</li>
+      <li>Confirm it connects to the database on startup.</li>
+    </ul>
+    <div class="stop"><p><b>Before anything else:</b> create a <code>.gitignore</code> with <code>.env</code> and <code>node_modules</code> in it, on day one. Database passwords and login secrets pushed to GitHub get found by automated scanners within minutes. This is the single most common beginner accident, and it's completely avoidable.</p></div>
+    <div class="done"><b>Done when</b><p>Visiting <code>localhost:3000/health</code> in your browser returns ok, and the terminal says the database connected.</p></div>
+  </div>
+
+  <div class="phase" data-n="2">
+    <h3>Schema, then move your real data in</h3>
+    <p class="phase-meta">a weekend</p>
+    <p>Define the five collections from the shapes you already know: <code>tasks</code>, <code>goals</code>, <code>categories</code>, <code>roadmaps</code>, <code>profile</code>. Every one gets <code>createdAt</code>, <code>updatedAt</code>, <code>deletedAt</code>.</p>
+    <p>Then the satisfying part — <strong>you already have a data importer.</strong> Open the app, go to Settings → Backup → Export, and you get a JSON file with everything in it. Write a small one-off script that reads that file and inserts it into Mongo. That's your real tasks and goals on a real server, before you've touched a single line of the frontend.</p>
+    <div class="callout"><p><strong>Two schema things not to get wrong.</strong> Store <code>task.date</code> and <code>goal.targetDate</code> as plain <code>String</code> in the <code>"YYYY-MM-DD"</code> format they already use — <em>not</em> as Mongo <code>Date</code> objects, or timezone conversion will shift your tasks a day. And there is no <code>progress</code> field on goals; it stays computed from tasks.</p></div>
+    <div class="done"><b>Done when</b><p>You can look inside Atlas and see your own real tasks sitting in the database.</p></div>
+  </div>
+
+  <div class="phase" data-n="3">
+    <h3>Read from the server</h3>
+    <p class="phase-meta">a weekend · first time the app touches the backend</p>
+    <p>Add <code>GET</code> routes for the five collections, each filtering out soft-deleted records:</p>
+    <pre class="code"><code>app.get("/api/tasks", async (req, res) =&gt; {
+  const tasks = await Task.find({ deletedAt: null });
+  res.json(tasks);
+});</code></pre>
+    <p>Then add the <strong>fourth adapter</strong> in <code>lib/storage.js</code> — the one the file's comments have been waiting for. Reading goes to the API; saving still goes to localStorage for now. Half-migrated on purpose: if the reads are wrong you'll see it immediately, and nothing can damage your server data yet.</p>
+    <div class="done"><b>Done when</b><p>You clear localStorage, reload, and your tasks still appear — because they came from the server.</p></div>
+  </div>
+
+  <div class="phase" data-n="4">
+    <h3>Write to the server, one mutation at a time</h3>
+    <p class="phase-meta">a week or two · the biggest phase</p>
+    <p>Delete the five <code>useAutoSave</code> calls in <code>App.jsx</code>. They save whole collections at once, which across two devices means whichever device saves last silently erases the other's work. Replace them with one request per change, fired from inside each mutation.</p>
+    <p>Start with <code>toggleTask</code> — it's the smallest and easiest to verify:</p>
+    <pre class="code"><code>const toggleTask = async (id) =&gt; {
+  const task = tasks.find(t =&gt; t.id === id);
+  setTasks(p =&gt; p.map(t =&gt; t.id === id ? touch(t, { done: !t.done }) : t));  <span class="cmt">// instant</span>
+  try {
+    await api.patch(`/tasks/${id}`, { done: !task.done });                    <span class="cmt">// then confirm</span>
+  } catch {
+    setTasks(p =&gt; p.map(t =&gt; t.id === id ? task : t));                        <span class="cmt">// put it back</span>
+    setSaveStatus({ state: "error", message: "Could not save" });
+  }
+};</code></pre>
+    <p>That pattern — change the screen immediately, send the request, undo if it fails — is called an <strong>optimistic update</strong>. It's why good apps feel instant on a slow phone connection. Get it right once here, then repeat it for the other eight mutations: <code>addTask</code>, <code>saveTask</code>, <code>softDeleteTask</code>, <code>saveGoal</code>, <code>setStatus</code>, the two deletes, and the roadmap edits.</p>
+    <div class="done"><b>Done when</b><p>Every one of the nine mutations survives a page reload, and turning the server off produces a visible error instead of silent data loss.</p></div>
+  </div>
+
+  <p class="stage-label">Stage two · going public</p>
+
+  <div class="phase" data-n="5">
+    <h3>Password and login</h3>
+    <p class="phase-meta">a weekend · this is the gate before deploying</p>
+    <p>Good news: <strong>you are the only user</strong>, so skip everything that makes auth hard. No signup page, no email verification, no password reset, no roles. What you actually need is four small pieces:</p>
+    <ol>
+      <li><strong>One user in the database</strong>, created by a script you run once. Store <code>bcrypt.hash(yourPassword, 10)</code> — never the password itself. Even you shouldn't be able to read it back.</li>
+      <li><strong><code>POST /api/login</code></strong> — takes the password, compares with <code>bcrypt.compare</code>, and on success returns a signed JWT. On failure, a generic "wrong password" with a deliberate delay so it can't be hammered.</li>
+      <li><strong>Middleware on every other route</strong> that reads the <code>Authorization: Bearer &lt;token&gt;</code> header, verifies the signature, and rejects with 401 if it's missing or bad. Apply it to all five collections — one unprotected route is the same as no protection.</li>
+      <li><strong>A login screen</strong> in the app, plus <code>lib/auth.js</code> finally waking up: <code>saveToken</code> after login, <code>getToken</code> attached to every request, <code>clearToken</code> on logout, and a 401 response bouncing you back to the login screen.</li>
+    </ol>
+    <div class="callout">
+      <p><strong>On where the token lives.</strong> <code>auth.js</code> keeps it in localStorage, which means any script on your page could read it. The sturdier option is an <code>httpOnly</code> cookie — but with your frontend and backend on different domains, cookies need cross-site configuration that is genuinely fiddly to get right. For a single-user personal app, take the localStorage token, get it working, and know the tradeoff. Don't let this choice stall you for a week.</p>
+      <p>Non-negotiables regardless: a long random <code>JWT_SECRET</code> in <code>.env</code> and never in code, and a real password — this endpoint will be exposed to the entire internet in the next phase.</p>
+    </div>
+    <div class="done"><b>Done when</b><p>Requesting <code>/api/tasks</code> with no token returns 401, and the app sends you to a login screen instead of showing data.</p></div>
+  </div>
+
+  <div class="phase" data-n="6">
+    <h3>Deploy all three pieces</h3>
+    <p class="phase-meta">a weekend, and expect it to fight you</p>
+    <p>Your project isn't a git repository yet, and almost every hosting platform deploys by pulling from GitHub — so <code>git init</code>, a first commit, and a <strong>private</strong> GitHub repo come first.</p>
+    <div class="table-scroll">
+      <table>
+        <tr><th>Piece</th><th>Where</th><th>Notes</th></tr>
+        <tr><td>Database</td><td>MongoDB Atlas</td><td>Free tier is plenty. You'll need to allow access from anywhere, since your server's IP isn't fixed.</td></tr>
+        <tr><td>Backend</td><td>Railway or Fly.io</td><td>Set every <code>.env</code> value in the dashboard, not in the repo.</td></tr>
+        <tr><td>Frontend</td><td>Vercel or Netlify</td><td><code>npm run build</code>, deploy <code>dist/</code>. Free and genuinely easy.</td></tr>
+      </table>
+    </div>
+    <p>Two things will go wrong, and they go wrong for everybody:</p>
+    <ul>
+      <li><strong>CORS.</strong> Your frontend and backend are on different domains now, so the browser blocks the requests until the server explicitly allows that origin. Configure <code>cors</code> with your actual frontend URL — not <code>*</code>, now that there's a login token involved.</li>
+      <li><strong>Cold starts.</strong> Free tiers on some hosts sleep after inactivity, so the first request takes 30+ seconds. For an app you open on your phone for ten seconds a day, that's genuinely miserable — pick a host that doesn't sleep, or budget a few dollars a month. Expect <strong>$0–5/month</strong> overall.</li>
+    </ul>
+    <div class="done"><b>Done when</b><p>You open the URL on your phone, log in, and see the tasks you added on your laptop.</p></div>
+  </div>
+
+  <p class="stage-label">Stage three · making it pleasant</p>
+
+  <div class="phase" data-n="7">
+    <h3>Make two devices actually agree</h3>
+    <p class="phase-meta">an evening · the fix you'll appreciate daily</p>
+    <p>After phase 6 it works, but the load effect in <code>App.jsx</code> runs <strong>once, on mount, and never again</strong>. Tick something on your phone, walk to your laptop, and the laptop shows yesterday's truth until you manually reload.</p>
+    <p>You don't need real-time sync for this. Refetch when the window becomes visible again:</p>
+    <pre class="code"><code>useEffect(() =&gt; {
+  const onVisible = () =&gt; { if (document.visibilityState === "visible") reload(); };
+  document.addEventListener("visibilitychange", onVisible);
+  return () =&gt; document.removeEventListener("visibilitychange", onVisible);
+}, [reload]);</code></pre>
+    <p>Switching to the tab or reopening the app on your phone now pulls fresh data. For one person who is only ever on one device at a time, this covers essentially every real case.</p>
+    <div class="done"><b>Done when</b><p>Add a task on your phone, switch to your laptop, and it's there without a manual refresh.</p></div>
+  </div>
+
+  <div class="phase" data-n="8">
+    <h3>Make it feel like a phone app</h3>
+    <p class="phase-meta">an evening · optional but high reward</p>
+    <p>The app is already responsive and has a mobile bottom nav, so it's mostly there. What's missing is a <code>public/</code> folder with a <code>manifest.json</code> and a few icon sizes — that's what turns "Add to Home Screen" into a real icon that opens without browser chrome.</p>
+    <p>If you want it to survive going offline, <code>vite-plugin-pwa</code> adds a service worker. Worth knowing: the app works offline <em>today</em> because everything is in localStorage, and moving to a server takes that away. Keeping the local adapter as an offline cache is the eventual answer — but it's a real project on its own, so leave it until the rest is running smoothly.</p>
+    <div class="done"><b>Done when</b><p>There's a Momentum icon on your phone's home screen that opens straight into the app.</p></div>
+  </div>
+
+  <h2>If you only remember four things</h2>
+  <ol>
+    <li><strong>Phase 0 before anything else.</strong> It's thirty minutes now, or a lost task list later.</li>
+    <li><strong>Never deploy before phase 5.</strong> An unprotected API on the public internet is everyone's API.</li>
+    <li><strong><code>.env</code> in <code>.gitignore</code>, first commit.</strong> Leaked secrets are the most common and most avoidable beginner accident.</li>
+    <li><strong>One phase at a time, and keep it working.</strong> Every phase above ends with something you can open and use. That's deliberate — when something breaks, you'll know it was in the last thing you touched.</li>
+  </ol>
+
+  <p class="lede" style="margin-top:44px">Realistically this is six to eight weekends at a learning pace. The code you're starting from is unusually well set up for it — the seams are already in the right places, and each mutation is already labelled with the endpoint it's meant to become.</p>
+</div>
