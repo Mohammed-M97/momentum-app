@@ -47,7 +47,24 @@ async function request(path, options = {}) {
   }
 
   const text = await response.text();
-  return text ? JSON.parse(text).data : null;
+  let payload = null;
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      // Not JSON at all: an HTML error page from a proxy, or a truncated
+      // download. If the status was fine, that is a broken response and the
+      // only thing we can report. If it was not, fall through so the check
+      // below reports the real HTTP problem instead of this symptom.
+       if (response.ok) {
+        const error = new Error(
+          "The server sent a response that could not be read",
+        );
+        error.status = response.status;
+        throw error;
+      }
+    }
+  }
   // 3. Check if response is NOT okay (status outside 200-299)
   if (!response.ok) {
     // Create an error and attach the HTTP status code to it

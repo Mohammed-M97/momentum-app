@@ -1,8 +1,12 @@
 # Momentum
 
-A small, offline-first personal planner — tasks, goals, weekly stats and a
-roadmap board — built with **React + Vite**. No backend required: everything
-is stored in the browser and can be exported to a JSON file.
+A small personal planner — tasks, goals, weekly stats and a roadmap board —
+built with **React + Vite**. All app data lives in the browser and can be
+exported to a JSON file; there is no server-side database yet.
+
+The app now opens behind a **sign-in screen** — the first piece of the API
+layer to be wired up for real. See [Signing in](#signing-in): you need a
+backend running, or a token in `localStorage`, to get past it.
 
 This repo is also a **learning project**. Alongside the app there are five
 long-form HTML documents that explain how it works and lay out, step by step,
@@ -22,12 +26,30 @@ npm run build      # production build into dist/
 npm run preview    # serve the production build locally
 ```
 
-Optional — copy `.env.example` to `.env` if you want to point the (in-progress)
-API client at a server:
+Copy `.env.example` to `.env` to point the API client at your server. This is
+the URL the sign-in request goes to; it defaults to `http://localhost:3000`.
 
 ```
 VITE_API_URL=http://localhost:3000
 ```
+
+### Signing in
+
+`AuthGate` is now the root component, so the first thing the app renders is
+`LoginView`, not `Today`. The gate's only question is whether a token exists in
+`localStorage` — it does not validate it.
+
+That means **the app now needs a backend serving `POST /auth/login`** before
+you can reach any of the screens. Until you have one, there are two ways in:
+
+- Set the token by hand — open devtools on the app's origin and run
+  `localStorage.setItem("momentum_token", "dev")`, then reload. Any non-empty
+  string works: nothing past the gate calls the API.
+- Or render `<App />` instead of `<AuthGate />` in `src/main.jsx`.
+
+Signing out lives in Settings → Sign out. It clears the token and drops you
+back to the login screen; **it does not erase your data** — that is the
+separate button above it.
 
 ---
 
@@ -40,7 +62,8 @@ VITE_API_URL=http://localhost:3000
 | **Goals** | Goals with a target date, a status (active / paused / done) and a progress bar **computed from linked tasks**. Categories are editable user data. |
 | **Weekly** | Read-only aggregation over tasks for the current week. Stores nothing of its own. |
 | **Roadmap** | Phase/milestone board for longer-horizon planning. |
-| **Settings** | Gear icon in the topbar (not a nav tab): profile name, theme, week start day, JSON backup/restore, active storage backend, erase everything. |
+| **Settings** | Gear icon in the topbar (not a nav tab): profile name, theme, week start day, JSON backup/restore, active storage backend, sign out, erase everything. |
+| **Sign in** | Shown by `AuthGate` whenever there is no token. The only screen that talks to the API. |
 
 Data is saved automatically — a **Saved** pill appears in the top-right when a
 write succeeds, and an error message appears there if one fails.
@@ -54,7 +77,8 @@ code comments.
 
 ```
 src/
-├─ main.jsx                 React entry point (mounts <App/>)
+├─ main.jsx                 React entry point (mounts <AuthGate/>)
+├─ AuthGate.jsx             token present?  ->  <App/>  :  <LoginView/>
 ├─ App.jsx             (14) the shell: all state, effects, mutations, routing
 │
 ├─ lib/                     pure logic — no JSX, no styling
@@ -78,8 +102,9 @@ src/
 │  ├─ GoalsView.jsx  (10)   + GoalCard + GoalModal + CategoryModal + goalProgress
 │  ├─ WeeklyView.jsx (11)   read-only stats
 │  ├─ RoadmapView.jsx(12)
-│  └─ SettingsView.jsx(13)  profile, theme, week start, backup, erase
-│                           + Onboarding
+│  ├─ SettingsView.jsx(13)  profile, theme, week start, backup, sign out,
+│  │                        erase + Onboarding
+│  └─ LoginView.jsx         email + password -> POST /auth/login
 │
 └─ styles/
    └─ momentum.css   (15)   all of the app's CSS
@@ -90,6 +115,11 @@ view receives its data and its callbacks as props. All state lives in
 `App.jsx`; all persistence goes through `lib/storage.js`. That single
 separation is what lets a real backend drop in later without rewriting any
 screen.
+
+`LoginView` is the one deliberate exception, and only because it runs *before*
+`App` exists: it calls `post()` and `saveToken()` itself, then tells `AuthGate`
+it is done with a bare `onSuccess()`. The gate never sees the token —
+`lib/auth.js` owns `localStorage`, the gate owns a boolean.
 
 ---
 
@@ -170,6 +200,7 @@ project for `BACKEND HOOK` to jump between these.
 
 | What | File | Notes |
 |---|---|---|
+| `POST /auth/login` | `views/LoginView.jsx` → `submit` | **Wired up.** Expects `{ token }` back. |
 | Storage adapter | `lib/storage.js` | The main seam. Add a 4th HTTP backend here. |
 | Initial load | `App.jsx` (load effect) | Becomes `GET /api/bootstrap` after login. |
 | Persistence (autosave) | `App.jsx` (the `useAutoSave` calls) | Replace with per-record API calls. |
@@ -188,12 +219,32 @@ project for `BACKEND HOOK` to jump between these.
 `src/lib/auth.js` is done: it stores, reads and clears a bearer token under
 `momentum_token` in `localStorage`.
 
-`src/lib/api.js` is a **work in progress**. It has the shape of the client —
-a `request()` helper that attaches `Authorization: Bearer <token>`, sets
-`Content-Type` only when there is a body, serialises object bodies, turns a
-failed `fetch` into a `status: 0` error, and clears the token on `401` — plus
-`get` / `post` / `put` / `del` wrappers. It is not imported anywhere in the app
-yet, and its error-handling block is not reached in the current draft.
+`src/lib/api.js` is now **in use** — `LoginView` is its first real caller.
+`request()` attaches `Authorization: Bearer <token>`, sets `Content-Type` only
+when there is a body, serialises object bodies, turns a failed `fetch` into a
+`status: 0` error, and clears the token on `401`. `get` / `post` / `put` /
+`del` wrap it.
+
+Its response handling is finished, and it is worth reading in order, because
+the ordering is the whole trick:
+
+1. Read the body as text once, then try to parse it.
+2. If the parse fails **and the status was fine**, that is a broken response —
+   an HTML error page from a proxy, a truncated download — and the only thing
+   worth reporting. If the parse fails and the status was *not* fine, fall
+   through, so step 3 reports the real HTTP problem instead of the unreadable
+   body, which is only a symptom of it.
+3. `!response.ok` throws with `payload.message` first, then `statusText`. That
+   is why `LoginView` shows `err.message` raw: a wrong password surfaces the
+   server's own "Invalid credentials" and a stopped backend surfaces the
+   network message, so there is nothing for the view to map.
+4. A `200` carrying `{ success: false }` still throws.
+5. Otherwise it returns `payload.data`, not the envelope — callers get the
+   record, and the client owns the unwrapping.
+
+Everything past login is still local: `App.jsx` has not been converted to
+per-record API calls, so the mutations in the table above are still hooks, not
+requests.
 
 ---
 
@@ -243,6 +294,26 @@ They were written to explain this codebase to someone learning, in order:
   quietly returning the default (the previous version is kept commented out in
   `lib/storage.js` for comparison).
 - **Started the API layer** — `lib/auth.js` and `lib/api.js`, described above.
+- **Added a login gate.** `AuthGate.jsx` is now the root component and
+  `main.jsx` renders it instead of `<App/>`. It holds one boolean, seeded from
+  `isLoggedIn()`, and swaps between `LoginView` and `App`. This is the change
+  that stops the app being runnable on its own — see
+  [Signing in](#signing-in).
+- **Added `views/LoginView.jsx`** — the first screen that calls the API for
+  real. Two details worth keeping: there is no `<form>` element on purpose (a
+  bare submit reloads the page), so the button's `onClick` is the submit path
+  and Enter on either input is wired to the same handler; and it renders its
+  own `.momentum` wrapper using the OS colour preference, because every theme
+  variable is defined on `.momentum[data-theme]` and `profile.theme` has not
+  been loaded yet at that point.
+- **Added: sign out** (Settings → Sign out). `App` takes an `onLogout` prop and
+  passes it down to `SettingsView`; the gate clears the token and flips its
+  boolean. Data is left untouched — erasing is still the separate button.
+- **Finished `api.js`'s error handling** — the unparseable-body branch above.
+  The draft returned `JSON.parse(text).data` before ever reaching the
+  `!response.ok` check, so a failed request either returned `undefined` (JSON
+  error body) or threw a raw `SyntaxError` (HTML error page) instead of an
+  error anyone could act on.
 
 ---
 

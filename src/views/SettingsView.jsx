@@ -20,7 +20,7 @@ const WEEK_STARTS = [
   { value: 1, label: "Monday" },
 ];
 
-export function SettingsView({ profile, setProfile, backendLabel, saveStatus, onReset, onExport, onImport }) {
+export function SettingsView({ profile, setProfile, backendLabel, saveStatus, onReset, onExport, onImport, onLogout }) {
   const fileRef = useRef(null);
   const [importError, setImportError] = useState("");
 
@@ -91,6 +91,14 @@ export function SettingsView({ profile, setProfile, backendLabel, saveStatus, on
         )}
         <div className="panel-actions">
           <button className="btn danger" onClick={onReset}>Erase everything</button>
+        </div>
+      </section>
+
+      <section className="panel">
+        <h3 className="panel-title">Sign out</h3>
+        <p className="panel-note">You can sign back in at any time.</p>
+        <div className="panel-actions">
+          <button className="btn" onClick={onLogout}>Sign out</button>
         </div>
       </section>
     </div>

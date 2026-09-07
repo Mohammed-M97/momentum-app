@@ -74,7 +74,7 @@ const TABS = [
   { id: "roadmap", label: "Roadmap", Icon: IconRoadmap },
 ];
 
-export default function App() {
+export default function App({ onLogout }) {
   const [hydrated, setHydrated] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [tab, setTab] = useState("today");
@@ -548,6 +548,7 @@ export default function App() {
             onReset={askReset}
             onExport={exportData}
             onImport={askImport}
+            onLogout={onLogout}
           />
         )}
       </main>
