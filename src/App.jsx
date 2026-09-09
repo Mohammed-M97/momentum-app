@@ -63,6 +63,8 @@ import { SettingsView, Onboarding } from "./views/SettingsView.jsx";
 
 import "./styles/momentum.css";
 
+import { post } from "./lib/api";
+
 /* The five "work" sections that appear in the nav bars. Settings is
    deliberately NOT here: it lives as an icon-only button in the topbar next
    to the theme toggle, so the nav stays focused on doing the work. */
@@ -191,8 +193,21 @@ export default function App({ onLogout }) {
   /* --- mutation helpers: one function per mutation = one API call each -- */
 
   /* BACKEND HOOK: POST /tasks */
-  const addTask = (t) =>
-    setTasks((p) => p.concat([newEntity({ done: false, ...t })]));
+  /* BACKEND HOOK: POST /tasks */
+  const addTask = async (t) => {
+    try {
+      const created = await post("/tasks", {
+        title: t.title,
+        date: t.date ?? null,
+        done: false,
+        effort: t.effort ?? "low",
+        goalId: t.goalId ?? null,
+      });
+      setTasks((p) => p.concat([created]));
+    } catch (err) {
+      console.error("addTask failed:", err.message);
+    }
+  };
   /* BACKEND HOOK: PATCH /tasks/:id  { done } */
   const toggleTask = (id) =>
     setTasks((p) =>
