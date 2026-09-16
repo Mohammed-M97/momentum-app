@@ -63,7 +63,7 @@ import { SettingsView, Onboarding } from "./views/SettingsView.jsx";
 
 import "./styles/momentum.css";
 
-import { post } from "./lib/api";
+import { post, put } from "./lib/api";
 
 /* The five "work" sections that appear in the nav bars. Settings is
    deliberately NOT here: it lives as an icon-only button in the topbar next
@@ -208,11 +208,17 @@ export default function App({ onLogout }) {
       console.error("addTask failed:", err.message);
     }
   };
-  /* BACKEND HOOK: PATCH /tasks/:id  { done } */
-  const toggleTask = (id) =>
-    setTasks((p) =>
-      p.map((t) => (t.id === id ? touch(t, { done: !t.done }) : t)),
-    );
+  /* BACKEND HOOK: PUT /tasks/:id  { done } */
+  const toggleTask = async (id) => {
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return;
+    try {
+      const updated = await put(`/tasks/${id}`, { done: !task.done });
+      setTasks((p) => p.map((t) => (t.id === id ? updated : t)));
+    } catch (err) {
+      console.error("toggleTask failed:", err.message);
+    }
+  };
   /* BACKEND HOOK: PATCH /tasks/:id  (full edit) */
   const saveTask = (task) => {
     setTasks((p) => p.map((t) => (t.id === task.id ? task : t)));
