@@ -63,7 +63,7 @@ import { SettingsView, Onboarding } from "./views/SettingsView.jsx";
 
 import "./styles/momentum.css";
 
-import { post, put } from "./lib/api";
+import { get, post, put, del } from "./lib/api";
 
 /* The five "work" sections that appear in the nav bars. Settings is
    deliberately NOT here: it lives as an icon-only button in the topbar next
@@ -113,7 +113,7 @@ export default function App({ onLogout }) {
         loadJSON(STORE_KEYS.profile, null),
         loadJSON(STORE_KEYS.categories, null),
         loadJSON(STORE_KEYS.goals, []),
-        loadJSON(STORE_KEYS.tasks, []),
+        get("/tasks"),
         loadJSON(STORE_KEYS.roadmaps, []),
       ]);
       if (!mounted.current) return;
@@ -219,16 +219,32 @@ export default function App({ onLogout }) {
       console.error("toggleTask failed:", err.message);
     }
   };
-  /* BACKEND HOOK: PATCH /tasks/:id  (full edit) */
-  const saveTask = (task) => {
-    setTasks((p) => p.map((t) => (t.id === task.id ? task : t)));
-    setTaskModal(null);
+  /* BACKEND HOOK: PUT /tasks/:id  (full edit) */
+  const saveTask = async (task) => {
+    try {
+      const updated = await put(`/tasks/${task.id}`, {
+        title: task.title,
+        date: task.date ?? null,
+        done: task.done,
+        effort: task.effort,
+        goalId: task.goalId ?? null,
+      });
+      setTasks((p) => p.map((t) => (t.id === task.id ? updated : t)));
+      setTaskModal(null);
+    } catch (err) {
+      console.error("saveTask failed:", err.message);
+    }
   };
   /* BACKEND HOOK: DELETE /tasks/:id  (server sets deletedAt) */
-  const softDeleteTask = (id) =>
-    setTasks((p) =>
-      p.map((t) => (t.id === id ? touch(t, { deletedAt: nowISO() }) : t)),
-    );
+  /* BACKEND HOOK: DELETE /tasks/:id  (server sets deletedAt) */
+  const softDeleteTask = async (id) => {
+    try {
+      await del(`/tasks/${id}`);
+      setTasks((p) => p.filter((t) => t.id !== id));
+    } catch (err) {
+      console.error("softDeleteTask failed:", err.message);
+    }
+  };
 
   const askDeleteTask = (task) =>
     setConfirm({
