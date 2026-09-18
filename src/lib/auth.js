@@ -15,3 +15,13 @@ export function clearToken() {
 export function isLoggedIn() {
   return getToken() !== null;
 }
+
+let unauthorizedHandler = null;
+
+export const setUnauthorizedHandler = (fn) => {
+  unauthorizedHandler = fn;
+};
+
+export const notifyUnauthorized = () => {
+  if (unauthorizedHandler) unauthorizedHandler();
+};

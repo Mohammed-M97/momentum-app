@@ -236,7 +236,6 @@ export default function App({ onLogout }) {
     }
   };
   /* BACKEND HOOK: DELETE /tasks/:id  (server sets deletedAt) */
-  /* BACKEND HOOK: DELETE /tasks/:id  (server sets deletedAt) */
   const softDeleteTask = async (id) => {
     try {
       await del(`/tasks/${id}`);

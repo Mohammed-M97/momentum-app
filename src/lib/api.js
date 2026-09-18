@@ -1,4 +1,4 @@
-import { getToken, clearToken } from "./auth";
+import { getToken, clearToken, notifyUnauthorized } from "./auth";
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 async function request(path, options = {}) {
@@ -44,6 +44,7 @@ async function request(path, options = {}) {
   // 2. Check for 401 Unauthorized status first
   if (response.status === 401) {
     clearToken();
+    notifyUnauthorized();
   }
 
   const text = await response.text();
