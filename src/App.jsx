@@ -150,7 +150,7 @@ export default function App({ onLogout }) {
 
   /* BACKEND HOOK: persistence --------------------------------------------
      Local version: whole-collection autosave (fine for localStorage).
-     API version: DELETE these five lines and instead call your API inside
+     API version: DELETE these four lines and instead call your API inside
      each mutation helper below (addTask -> POST /tasks, editTask -> PATCH
      /tasks/:id, softDeleteTask -> DELETE /tasks/:id which sets deletedAt
      server-side). Keep saveJSON as an offline cache write if you want
@@ -161,7 +161,7 @@ export default function App({ onLogout }) {
   useAutoSave(STORE_KEYS.profile, profile, hydrated, report);
   useAutoSave(STORE_KEYS.categories, categories, hydrated, report);
   useAutoSave(STORE_KEYS.goals, goals, hydrated, report);
-  useAutoSave(STORE_KEYS.tasks, tasks, hydrated, report);
+/*   useAutoSave(STORE_KEYS.tasks, tasks, hydrated, report); */
   useAutoSave(STORE_KEYS.roadmaps, roadmaps, hydrated, report);
 
   const theme =
@@ -287,21 +287,34 @@ export default function App({ onLogout }) {
           ". By default those tasks stay and lose the link."
         : '"' + goal.title + '" will be removed.',
       /* BACKEND HOOK: DELETE /goals/:id (+ optional cascade or unlink of tasks) */
-      onConfirm: (alsoTasks) => {
+      onConfirm: async (alsoTasks) => {
+        const linkedTasks = tasks.filter((t) => t.goalId === goal.id);
+
         setGoals((p) =>
           p.map((g) =>
             g.id === goal.id ? touch(g, { deletedAt: nowISO() }) : g,
           ),
         );
-        setTasks((p) =>
-          p.map((t) => {
-            if (t.goalId !== goal.id) return t;
-            return alsoTasks
-              ? touch(t, { deletedAt: nowISO() })
-              : touch(t, { goalId: null });
-          }),
-        );
         setConfirm(null);
+
+        try {
+          await Promise.all(
+            linkedTasks.map((t) =>
+              alsoTasks
+                ? del(`/tasks/${t.id}`)
+                : put(`/tasks/${t.id}`, { goalId: null }),
+            ),
+          );
+        } catch (err) {
+          console.error("goal cascade failed:", err.message);
+        }
+
+        try {
+          const fresh = await get("/tasks");
+          setTasks(Array.isArray(fresh) ? fresh : []);
+        } catch (err) {
+          console.error("task resync failed:", err.message);
+        }
       },
     });
   };
