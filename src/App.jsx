@@ -112,7 +112,7 @@ export default function App({ onLogout }) {
       const r = await Promise.all([
         loadJSON(STORE_KEYS.profile, null),
         loadJSON(STORE_KEYS.categories, null),
-        loadJSON(STORE_KEYS.goals, []),
+        get("/goals"),
         get("/tasks"),
         loadJSON(STORE_KEYS.roadmaps, []),
       ]);
@@ -160,8 +160,6 @@ export default function App({ onLogout }) {
   const report = useCallback((s) => setSaveStatus(s), []);
   useAutoSave(STORE_KEYS.profile, profile, hydrated, report);
   useAutoSave(STORE_KEYS.categories, categories, hydrated, report);
-  useAutoSave(STORE_KEYS.goals, goals, hydrated, report);
-/*   useAutoSave(STORE_KEYS.tasks, tasks, hydrated, report); */
   useAutoSave(STORE_KEYS.roadmaps, roadmaps, hydrated, report);
 
   const theme =
@@ -257,18 +255,31 @@ export default function App({ onLogout }) {
     });
 
   /* BACKEND HOOK: POST /goals or PATCH /goals/:id */
-  const saveGoal = (draft) => {
-    if (goalModal && goalModal.goal) {
-      const id = goalModal.goal.id;
-      setGoals((p) => p.map((g) => (g.id === id ? touch(g, draft) : g)));
-    } else {
-      setGoals((p) => p.concat([newEntity(draft)]));
+  const saveGoal = async (draft) => {
+    try {
+      const created = await post("/goals", {
+        title: draft.title,
+        why: draft.why,
+        status: draft.status,
+        targetDate: draft.targetDate ?? null,
+        categoryId: draft.categoryId ?? null,
+      });
+      setGoals((p) => p.concat([created]));
+      setGoalModal(null);
+    } catch (error) {
+      console.error("saveGoal failed:", error.message);
     }
-    setGoalModal(null);
   };
-  /* BACKEND HOOK: PATCH /goals/:id  { status } */
-  const setStatus = (id, status) =>
-    setGoals((p) => p.map((g) => (g.id === id ? touch(g, { status }) : g)));
+  /* BACKEND HOOK: PUT /goals/:id  { status } */
+  const setStatus = async (id, status) => {
+    try {
+        const updated = await put(`/goals/${id}`, { status });
+        setGoals((p) => p.map((g) => (g.id === id ? updated : g)));
+      setGoalModal(null);
+    } catch (error) {
+      console.error("saveGoal failed:", error.message);
+    }
+  };
 
   const askDeleteGoal = (goal) => {
     const linked = tasks.filter((t) => alive(t) && t.goalId === goal.id).length;
