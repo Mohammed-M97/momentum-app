@@ -38,7 +38,7 @@ import {
   DEFAULT_PROFILE,
   defaultCategories,
 } from "./lib/config.js";
-import { touch, nowISO, newEntity, alive } from "./lib/entities.js";
+import { touch, nowISO, alive } from "./lib/entities.js";
 import { todayStr, longDate, weekStartOf } from "./lib/dates.js";
 import { store, loadJSON, useAutoSave } from "./lib/storage.js";
 import { starterData, emptyRoadmaps } from "./lib/seed.js";
@@ -191,7 +191,6 @@ export default function App({ onLogout }) {
   /* --- mutation helpers: one function per mutation = one API call each -- */
 
   /* BACKEND HOOK: POST /tasks */
-  /* BACKEND HOOK: POST /tasks */
   const addTask = async (t) => {
     try {
       const created = await post("/tasks", {
@@ -254,30 +253,37 @@ export default function App({ onLogout }) {
       },
     });
 
-  /* BACKEND HOOK: POST /goals or PATCH /goals/:id */
+  /* BACKEND HOOK: POST /goals or PUT /goals/:id */
   const saveGoal = async (draft) => {
+    const payload = {
+      title: draft.title,
+      why: draft.why,
+      status: draft.status,
+      targetDate: draft.targetDate ?? null,
+      categoryId: draft.categoryId ?? null,
+    };
     try {
-      const created = await post("/goals", {
-        title: draft.title,
-        why: draft.why,
-        status: draft.status,
-        targetDate: draft.targetDate ?? null,
-        categoryId: draft.categoryId ?? null,
-      });
-      setGoals((p) => p.concat([created]));
+      if (goalModal && goalModal.goal) {
+        const id = goalModal.goal.id;
+        const updated = await put(`/goals/${id}`, payload);
+        setGoals((p) => p.map((g) => (g.id === id ? updated : g)));
+      } else {
+        const created = await post("/goals", payload);
+        setGoals((p) => p.concat([created]));
+      }
       setGoalModal(null);
     } catch (error) {
       console.error("saveGoal failed:", error.message);
     }
   };
+
   /* BACKEND HOOK: PUT /goals/:id  { status } */
   const setStatus = async (id, status) => {
     try {
-        const updated = await put(`/goals/${id}`, { status });
-        setGoals((p) => p.map((g) => (g.id === id ? updated : g)));
-      setGoalModal(null);
+      const updated = await put(`/goals/${id}`, { status });
+      setGoals((p) => p.map((g) => (g.id === id ? updated : g)));
     } catch (error) {
-      console.error("saveGoal failed:", error.message);
+      console.error("setStatus failed:", error.message);
     }
   };
 
