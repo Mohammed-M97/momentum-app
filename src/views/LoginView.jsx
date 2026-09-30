@@ -39,7 +39,7 @@ export default function LoginView({ onSuccess }) {
       : false
   );
 
-  /* BACKEND HOOK: POST /auth/login -> { token }
+  /* API WIRED: POST /auth/login -> { token }
      err.message is already the server's own string: request() pulls it from
      payload.message, so a bad password surfaces "Invalid credentials" and a
      stopped backend surfaces the network message. Nothing to map here. */

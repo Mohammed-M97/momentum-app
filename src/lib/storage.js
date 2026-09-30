@@ -2,6 +2,9 @@
    BACKEND HOOK: storage adapter ------------------------------------------
    THIS IS THE MAIN SEAM WHERE YOUR BACKEND CONNECTS.
 
+   Status: goals and tasks have moved to the real API (lib/api.js) and no
+   longer pass through here. Profile, categories and roadmaps still do.
+
    Today: three local backends picked by feature detection (Claude storage,
    localStorage, in-memory). Each implements get(key) and set(key, value).
 

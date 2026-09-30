@@ -27,7 +27,8 @@
    is what makes the backend swap possible.
 
    Search for these markers:
-     BACKEND HOOK   - the exact places where your API will plug in
+     API WIRED      - already calling the real API (lib/api.js)
+     BACKEND HOOK   - still local; where the API will plug in next
      HARD CONCEPT   - explanation of a pattern that may be new to you
    ========================================================================== */
 
@@ -93,10 +94,12 @@ export default function App({ onLogout }) {
   const [confirm, setConfirm] = useState(null);
   const [deleteLinked, setDeleteLinked] = useState(false);
 
-  /* BACKEND HOOK: initial load -------------------------------------------
-     Local version reads five keys from the storage adapter. API version:
-     one GET /api/bootstrap (or five parallel GETs) after login, then the
-     same five setState calls. Nothing below this effect changes.
+  /* API WIRED + BACKEND HOOK: initial load -------------------------------
+     API WIRED:    goals and tasks come from GET /goals and GET /tasks.
+     BACKEND HOOK: profile, categories and roadmaps still come from the
+     storage adapter. Swap each loadJSON for a GET when its endpoint exists
+     (or fold everything into one GET /api/bootstrap). The five setState
+     calls stay the same.
      --------------------------------------------------------------------- */
   const mounted = useRef(true);
   useEffect(() => {
@@ -149,13 +152,12 @@ export default function App({ onLogout }) {
   }, []);
 
   /* BACKEND HOOK: persistence --------------------------------------------
-     Local version: whole-collection autosave (fine for localStorage).
-     API version: DELETE these four lines and instead call your API inside
-     each mutation helper below (addTask -> POST /tasks, editTask -> PATCH
-     /tasks/:id, softDeleteTask -> DELETE /tasks/:id which sets deletedAt
-     server-side). Keep saveJSON as an offline cache write if you want
-     offline support. The helpers are written one-mutation-one-function
-     exactly so this swap stays mechanical.
+     Goals and tasks no longer autosave: their mutation helpers below call
+     the API directly (see API WIRED).
+     Profile, categories and roadmaps still use the whole-collection
+     autosave. When their endpoints exist, delete the matching useAutoSave
+     line and call the API from each mutation helper instead, the same
+     way tasks and goals do.
      --------------------------------------------------------------------- */
   const report = useCallback((s) => setSaveStatus(s), []);
   useAutoSave(STORE_KEYS.profile, profile, hydrated, report);
@@ -190,7 +192,7 @@ export default function App({ onLogout }) {
 
   /* --- mutation helpers: one function per mutation = one API call each -- */
 
-  /* BACKEND HOOK: POST /tasks */
+  /* API WIRED: POST /tasks */
   const addTask = async (t) => {
     try {
       const created = await post("/tasks", {
@@ -205,7 +207,7 @@ export default function App({ onLogout }) {
       console.error("addTask failed:", err.message);
     }
   };
-  /* BACKEND HOOK: PUT /tasks/:id  { done } */
+  /* API WIRED: PUT /tasks/:id  { done } */
   const toggleTask = async (id) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
@@ -216,7 +218,7 @@ export default function App({ onLogout }) {
       console.error("toggleTask failed:", err.message);
     }
   };
-  /* BACKEND HOOK: PUT /tasks/:id  (full edit) */
+  /* API WIRED: PUT /tasks/:id  (full edit) */
   const saveTask = async (task) => {
     try {
       const updated = await put(`/tasks/${task.id}`, {
@@ -232,7 +234,7 @@ export default function App({ onLogout }) {
       console.error("saveTask failed:", err.message);
     }
   };
-  /* BACKEND HOOK: DELETE /tasks/:id  (server sets deletedAt) */
+  /* API WIRED: DELETE /tasks/:id  (server sets deletedAt) */
   const softDeleteTask = async (id) => {
     try {
       await del(`/tasks/${id}`);
@@ -253,7 +255,7 @@ export default function App({ onLogout }) {
       },
     });
 
-  /* BACKEND HOOK: POST /goals or PUT /goals/:id */
+  /* API WIRED: POST /goals or PUT /goals/:id */
   const saveGoal = async (draft) => {
     const payload = {
       title: draft.title,
@@ -277,7 +279,7 @@ export default function App({ onLogout }) {
     }
   };
 
-  /* BACKEND HOOK: PUT /goals/:id  { status } */
+  /* API WIRED: PUT /goals/:id  { status } */
   const setStatus = async (id, status) => {
     try {
       const updated = await put(`/goals/${id}`, { status });
@@ -303,27 +305,16 @@ export default function App({ onLogout }) {
           (linked === 1 ? "" : "s") +
           ". By default those tasks stay and lose the link."
         : '"' + goal.title + '" will be removed.',
-      /* BACKEND HOOK: DELETE /goals/:id (+ optional cascade or unlink of tasks) */
+      /* API WIRED: DELETE /goals/:id?tasks=delete|unlink, then GET /tasks resync */
       onConfirm: async (alsoTasks) => {
-        const linkedTasks = tasks.filter((t) => t.goalId === goal.id);
-
-        setGoals((p) =>
-          p.map((g) =>
-            g.id === goal.id ? touch(g, { deletedAt: nowISO() }) : g,
-          ),
-        );
         setConfirm(null);
 
         try {
-          await Promise.all(
-            linkedTasks.map((t) =>
-              alsoTasks
-                ? del(`/tasks/${t.id}`)
-                : put(`/tasks/${t.id}`, { goalId: null }),
-            ),
-          );
+          const mode = alsoTasks ? "delete" : "unlink";
+          await del(`/goals/${goal.id}?tasks=${mode}`);
+          setGoals((p) => p.filter((g) => g.id !== goal.id));
         } catch (err) {
-          console.error("goal cascade failed:", err.message);
+          console.error("deleteGoal failed:", err.message);
         }
 
         try {
@@ -336,7 +327,7 @@ export default function App({ onLogout }) {
     });
   };
 
-  /* BACKEND HOOK: DELETE /roadmaps/:id */
+  /* BACKEND HOOK: DELETE /roadmaps/:id  (not wired yet: still a local soft delete) */
   const askDeleteRoadmap = (rm) =>
     setConfirm({
       kind: "roadmap",
