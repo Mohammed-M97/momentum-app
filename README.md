@@ -1,12 +1,17 @@
 # Momentum
 
 A small personal planner — tasks, goals, weekly stats and a roadmap board —
-built with **React + Vite**. All app data lives in the browser and can be
-exported to a JSON file; there is no server-side database yet.
+built with **React + Vite**. The app is partway through moving from
+browser-only storage to its own server:
 
-The app now opens behind a **sign-in screen** — the first piece of the API
-layer to be wired up for real. See [Signing in](#signing-in): you need a
-backend running, or a token in `localStorage`, to get past it.
+- **Goals and tasks** live on the server and go through the HTTP API.
+- **Profile, categories and roadmaps** are still saved in the browser.
+- **Everything** can be exported to a JSON file.
+
+The app opens behind a **sign-in screen**, and loads goals and tasks from the
+API as soon as you are in. See [Signing in](#signing-in): **you need a backend
+running to use it.** The backend is not part of this repo; the endpoints it
+must serve are listed under [Backend hooks](#backend-hooks).
 
 This repo is also a **learning project**. Alongside the app there are five
 long-form HTML documents that explain how it works and lay out, step by step,
@@ -26,8 +31,8 @@ npm run build      # production build into dist/
 npm run preview    # serve the production build locally
 ```
 
-Copy `.env.example` to `.env` to point the API client at your server. This is
-the URL the sign-in request goes to; it defaults to `http://localhost:3000`.
+Copy `.env.example` to `.env` to point the API client at your server. Every
+API request goes to this URL; it defaults to `http://localhost:3000`.
 
 ```
 VITE_API_URL=http://localhost:3000
@@ -39,13 +44,21 @@ VITE_API_URL=http://localhost:3000
 `LoginView`, not `Today`. The gate's only question is whether a token exists in
 `localStorage` — it does not validate it.
 
-That means **the app now needs a backend serving `POST /auth/login`** before
-you can reach any of the screens. Until you have one, there are two ways in:
+Past the gate, `App` immediately calls `GET /goals` and `GET /tasks`, so
+**the app needs a running backend** that serves `POST /auth/login` plus the
+task and goal endpoints in [Backend hooks](#backend-hooks). There is no
+offline way in any more:
 
-- Set the token by hand — open devtools on the app's origin and run
-  `localStorage.setItem("momentum_token", "dev")`, then reload. Any non-empty
-  string works: nothing past the gate calls the API.
-- Or render `<App />` instead of `<AuthGate />` in `src/main.jsx`.
+- With no server, the load fails and the app shows the error with a retry
+  button.
+- A fake token set by hand in `localStorage` is rejected by a real server with
+  `401`. `api.js` then clears the token, and `AuthGate` sends you back to the
+  login screen.
+
+That `401` path works anywhere: if the token expires mid-session, the next
+request signs you out automatically. `AuthGate` registers the handler through
+`setUnauthorizedHandler()` in `lib/auth.js`, and `api.js` calls
+`notifyUnauthorized()`.
 
 Signing out lives in Settings → Sign out. It clears the token and drops you
 back to the login screen; **it does not erase your data** — that is the
@@ -63,10 +76,12 @@ separate button above it.
 | **Weekly** | Read-only aggregation over tasks for the current week. Stores nothing of its own. |
 | **Roadmap** | Phase/milestone board for longer-horizon planning. |
 | **Settings** | Gear icon in the topbar (not a nav tab): profile name, theme, week start day, JSON backup/restore, active storage backend, sign out, erase everything. |
-| **Sign in** | Shown by `AuthGate` whenever there is no token. The only screen that talks to the API. |
+| **Sign in** | Shown by `AuthGate` whenever there is no token. Email + password → `POST /auth/login`. |
 
-Data is saved automatically — a **Saved** pill appears in the top-right when a
-write succeeds, and an error message appears there if one fails.
+Profile, categories and roadmaps are saved automatically. A **Saved** pill
+appears in the top-right when one of those writes succeeds, and an error
+message appears there if it fails. Task and goal changes go straight to the
+API instead, and do not drive the pill. See [Known gaps](#known-gaps).
 
 ---
 
@@ -88,8 +103,8 @@ src/
 │  ├─ storage.js      (4)   storage adapter  ← MAIN BACKEND SEAM
 │  ├─ seed.js         (5)   optional example data
 │  ├─ transfer.js    (16)   JSON export / import (backup)
-│  ├─ api.js                HTTP client — WORK IN PROGRESS, not wired up yet
-│  └─ auth.js               token save/read/clear in localStorage
+│  ├─ api.js                HTTP client: get / post / put / del
+│  └─ auth.js               token in localStorage + the 401 handler
 │
 ├─ components/              reusable presentation pieces
 │  ├─ icons.jsx       (6)   every inline SVG icon
@@ -110,11 +125,11 @@ src/
    └─ momentum.css   (15)   all of the app's CSS
 ```
 
-**The one rule that keeps this organized:** views never touch storage. Every
-view receives its data and its callbacks as props. All state lives in
-`App.jsx`; all persistence goes through `lib/storage.js`. That single
-separation is what lets a real backend drop in later without rewriting any
-screen.
+**The one rule that keeps this organized:** views never touch storage or the
+API. Every view receives its data and its callbacks as props. All state lives
+in `App.jsx`, and all persistence starts there too: `lib/api.js` for goals and
+tasks, `lib/storage.js` for everything else. That separation is why moving
+tasks and goals onto the server did not touch a single screen.
 
 `LoginView` is the one deliberate exception, and only because it runs *before*
 `App` exists: it calls `post()` and `saveToken()` itself, then tells `AuthGate`
@@ -146,6 +161,9 @@ it is done with a bare `onSuccess()`. The gate never sees the token —
 
 ## Storage
 
+Goals and tasks now live on the server; this section covers the data that is
+still local: **profile, categories and roadmaps**.
+
 `lib/storage.js` picks one of three local backends at startup by feature
 detection, and exposes the same `get(key)` / `set(key, value)` interface for
 each:
@@ -156,10 +174,16 @@ each:
 | `local` | `localStorage` is writable | Saved in this browser |
 | `memory` | neither works | Storage unavailable here, data lasts this session only |
 
-Adding a fourth HTTP backend here is the intended path to a real server — with
-one caveat spelled out in the file: do not implement `set()` as "upload the
-whole array". Replace the five `useAutoSave` calls in `App.jsx` with per-record
-API calls instead, and keep the local backend as an offline cache.
+Tasks and goals already show the intended way off this adapter. Their
+`useAutoSave` calls were deleted, and each mutation helper calls the API
+directly. Do **not** implement `set()` as "upload the whole array". The three
+remaining `useAutoSave` calls in `App.jsx` (profile, categories, roadmaps)
+should go the same way as their endpoints appear, with the local backend kept
+as an offline cache.
+
+Since `loadJSON` stopped swallowing errors, a corrupted local value fails the
+whole initial load: the app shows the error and a **Try again** button rather
+than starting from defaults and saving over what was there.
 
 ### Backup (export / import)
 
@@ -175,12 +199,13 @@ versioned envelope:
 }
 ```
 
-`momentum-backup-sample.json` in the repo root is a real example file.
-
 Import never trusts the file. `parseImport()` in `lib/transfer.js` rejects
 non-JSON, files from other apps and damaged collections, each with a message
 safe to show on screen. Only after it parses cleanly does `App.jsx` ask you to
-confirm — importing **replaces** everything currently in the app.
+confirm — importing **replaces** everything currently on screen. Export includes
+the goals and tasks loaded from the server. Import, however, does not send
+goals and tasks back to the server yet, so imported goals and tasks are lost
+on reload. See [Known gaps](#known-gaps).
 
 Keep the `version` field: it is how a future you reads an old file. The whole
 envelope is also the easiest thing for a first real API to accept, so a local
@@ -195,35 +220,52 @@ The view still never touches storage.
 ## Backend hooks
 
 Every mutation is one small named function. **One function = one endpoint.**
-That is deliberate — the backend swap is meant to be mechanical. Search the
-project for `BACKEND HOOK` to jump between these.
+That is deliberate — the backend swap is meant to be mechanical. The code
+marks each one with one of two comments:
+
+- `API WIRED` — already calling the real API through `lib/api.js`.
+- `BACKEND HOOK` — still local; where the API plugs in next.
+
+**Wired** — the backend must serve these:
+
+| Endpoint | File | Notes |
+|---|---|---|
+| `POST /auth/login` | `views/LoginView.jsx` → `submit` | `{ email, password }` in, `{ token }` back. |
+| `GET /goals`, `GET /tasks` | `App.jsx` → `loadAll` | Initial load, after login. |
+| `POST /tasks` | `App.jsx` → `addTask` | Server returns the created task (with its id). |
+| `PUT /tasks/:id { done }` | `App.jsx` → `toggleTask` | |
+| `PUT /tasks/:id` (full edit) | `App.jsx` → `saveTask` | `title`, `date`, `done`, `effort`, `goalId`. |
+| `DELETE /tasks/:id` | `App.jsx` → `softDeleteTask` | Server sets `deletedAt`. |
+| `POST /goals` / `PUT /goals/:id` | `App.jsx` → `saveGoal` | `title`, `why`, `status`, `targetDate`, `categoryId`. |
+| `PUT /goals/:id { status }` | `App.jsx` → `setStatus` | |
+| `DELETE /goals/:id?tasks=delete\|unlink` | `App.jsx` → `askDeleteGoal` | Server deletes or unlinks the goal's tasks; the app then re-fetches `GET /tasks`. |
+
+Every response is expected in the envelope `api.js` unwraps:
+`{ success, data, message }`.
+
+**Still local** — the next hooks to convert:
 
 | What | File | Notes |
 |---|---|---|
-| `POST /auth/login` | `views/LoginView.jsx` → `submit` | **Wired up.** Expects `{ token }` back. |
-| Storage adapter | `lib/storage.js` | The main seam. Add a 4th HTTP backend here. |
-| Initial load | `App.jsx` (load effect) | Becomes `GET /api/bootstrap` after login. |
-| Persistence (autosave) | `App.jsx` (the `useAutoSave` calls) | Replace with per-record API calls. |
-| `POST /tasks` | `App.jsx` → `addTask` | |
-| `PATCH /tasks/:id { done }` | `App.jsx` → `toggleTask` | |
-| `PATCH /tasks/:id` (full edit) | `App.jsx` → `saveTask` | |
-| `DELETE /tasks/:id` | `App.jsx` → `softDeleteTask` | Server sets `deletedAt`. |
-| `POST` / `PATCH /goals/:id` | `App.jsx` → `saveGoal` | |
-| `PATCH /goals/:id { status }` | `App.jsx` → `setStatus` | |
-| `DELETE /goals/:id` | `App.jsx` → `askDeleteGoal` | Optional task cascade/unlink. |
-| `DELETE /roadmaps/:id` | `App.jsx` → `askDeleteRoadmap` | |
+| Profile, categories, roadmaps load | `App.jsx` → `loadAll` (`loadJSON` calls) | Swap each for a `GET`, or fold all into one `GET /api/bootstrap`. |
+| Profile, categories, roadmaps save | `App.jsx` (the three `useAutoSave` calls) | Replace with per-record calls, as tasks and goals did. |
+| `DELETE /roadmaps/:id` | `App.jsx` → `askDeleteRoadmap` | Still a local soft delete. |
+| Storage adapter | `lib/storage.js` | Remains as the local backend / future offline cache. |
 | Migration path | `lib/transfer.js` | `POST /api/import` can accept the export envelope as-is. |
 
 ### Current state of the API work
 
-`src/lib/auth.js` is done: it stores, reads and clears a bearer token under
-`momentum_token` in `localStorage`.
+`src/lib/auth.js` stores, reads and clears a bearer token under
+`momentum_token` in `localStorage`. It also holds a single "unauthorized"
+callback: `AuthGate` registers it with `setUnauthorizedHandler()`, and
+`api.js` fires it with `notifyUnauthorized()`.
 
-`src/lib/api.js` is now **in use** — `LoginView` is its first real caller.
-`request()` attaches `Authorization: Bearer <token>`, sets `Content-Type` only
-when there is a body, serialises object bodies, turns a failed `fetch` into a
-`status: 0` error, and clears the token on `401`. `get` / `post` / `put` /
-`del` wrap it.
+`src/lib/api.js` is used by `LoginView` and by every task and goal mutation in
+`App.jsx`. `request()` attaches `Authorization: Bearer <token>`, sets
+`Content-Type` only when there is a body, serialises object bodies, and turns
+a failed `fetch` into a `status: 0` error. On a `401` it clears the token
+and notifies the gate, which drops you back to the login screen. `get` /
+`post` / `put` / `del` wrap it.
 
 Its response handling is finished, and it is worth reading in order, because
 the ordering is the whole trick:
@@ -242,9 +284,25 @@ the ordering is the whole trick:
 5. Otherwise it returns `payload.data`, not the envelope — callers get the
    record, and the client owns the unwrapping.
 
-Everything past login is still local: `App.jsx` has not been converted to
-per-record API calls, so the mutations in the table above are still hooks, not
-requests.
+Goals and tasks are fully on the API: loaded with `GET`, changed one record
+at a time, and no longer autosaved locally. Profile, categories and roadmaps
+are the remaining local collections.
+
+### Known gaps
+
+Goals and tasks moved to the server first; these features still treat them
+as purely local state:
+
+- **Errors from task / goal calls are silent.** Each helper catches the error
+  and only logs it to the console. The screen does not change and the
+  **Saved** pill is not involved, so a failed add or edit looks like nothing
+  happened.
+- **Import** replaces goals and tasks in memory without sending them to the
+  server. They vanish on reload.
+- **Example data** (onboarding's "start with examples") has the same problem
+  for its sample goals and tasks.
+- **Erase everything** clears goals and tasks on screen only. The server still
+  has them, and they come back on the next load.
 
 ---
 
@@ -260,6 +318,11 @@ They were written to explain this codebase to someone learning, in order:
 | `trace-map.html` | **Signal Trace** — five lanes, and every trace runs through the same five: add a task, edit a task, delete a task, first page load, plus the whole wiring diagram. |
 | `backend-roadmap.html` | **Local app to your own server, in nine steps** — the stack to pick, fixing the data-loss bug, a backend skeleton, schema and data migration, reads, writes one mutation at a time, login, deploying all three pieces, making two devices agree, and making it feel like a phone app. |
 | `api-roadmap.html` | **The Momentum API: what to build, in order** — what a backend actually is, the folder layout, the five models, every endpoint and who calls it, the password concretely, four traps that each cost an evening, and the build order. |
+
+These pages were written before the API work began, so their route names are
+a plan rather than a spec: they use `/api/login` and `/api/...`, while the app
+calls `/auth/login`, `/goals` and `/tasks`. Where they disagree, the
+[Backend hooks](#backend-hooks) tables above match the code.
 
 ---
 
@@ -314,6 +377,23 @@ They were written to explain this codebase to someone learning, in order:
   `!response.ok` check, so a failed request either returned `undefined` (JSON
   error body) or threw a raw `SyntaxError` (HTML error page) instead of an
   error anyone could act on.
+- **Moved tasks onto the API**, starting with `addTask` → `POST /tasks`, then
+  toggle, edit and delete. The server now assigns ids and timestamps; the app
+  replaces its copy with whatever the server returns.
+- **Moved goals onto the API** — create, edit, status change and delete. Goal
+  delete passes `?tasks=delete|unlink` and re-fetches the task list afterwards,
+  because the server may have changed linked tasks.
+- **Initial load now reads goals and tasks from the server** (`GET /goals`,
+  `GET /tasks`) alongside the three local collections. Their `useAutoSave`
+  calls were removed.
+- **Load failures are shown, not hidden.** A failed load (server down, or
+  corrupted local data) shows the error and a **Try again** button.
+  `hydrated` is only set after a successful load, so autosave can never
+  overwrite good data with defaults.
+- **Automatic sign-out on `401`.** `lib/auth.js` gained
+  `setUnauthorizedHandler` / `notifyUnauthorized`; an expired or rejected
+  token now returns you to the login screen from anywhere in the app.
+- **Removed `momentum-backup-sample.json`** from the repo.
 
 ---
 
@@ -324,3 +404,9 @@ There is no test runner wired into this project yet. `parseImport()` in
 (17 assertions: lossless round-trip, rejection of non-JSON / foreign / damaged
 files, tolerance of absent collections). If you add a runner — Vitest is the
 natural fit for Vite — `parseImport` is the obvious first thing to cover.
+
+---
+
+## License
+
+[MIT](LICENSE)
