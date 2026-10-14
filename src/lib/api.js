@@ -1,5 +1,6 @@
 import { getToken, clearToken, notifyUnauthorized } from "./auth";
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const BASE_URL = import.meta.env.VITE_API_URL;
+if (!BASE_URL) throw new Error("VITE_API_URL is not set");
 
 async function request(path, options = {}) {
   const url = `${BASE_URL}${path}`;
@@ -57,7 +58,7 @@ async function request(path, options = {}) {
       // download. If the status was fine, that is a broken response and the
       // only thing we can report. If it was not, fall through so the check
       // below reports the real HTTP problem instead of this symptom.
-       if (response.ok) {
+      if (response.ok) {
         const error = new Error(
           "The server sent a response that could not be read",
         );
