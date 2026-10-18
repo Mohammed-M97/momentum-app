@@ -1,11 +1,15 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import App from "./App.jsx";
 import "./index.css";
 import AuthGate from "./AuthGate.jsx";
+import { startDemoIfRequested } from "./lib/demo";
 
-createRoot(document.getElementById("root")).render(
-  <StrictMode>
-    <AuthGate />
-  </StrictMode>
-);
+startDemoIfRequested()
+  .catch((err) => console.error("Demo failed:", err))
+  .finally(() => {
+    createRoot(document.getElementById("root")).render(
+      <StrictMode>
+        <AuthGate />
+      </StrictMode>
+    );
+  });
