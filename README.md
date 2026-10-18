@@ -31,12 +31,38 @@ npm run build      # production build into dist/
 npm run preview    # serve the production build locally
 ```
 
-Copy `.env.example` to `.env` to point the API client at your server. Every
-API request goes to this URL; it defaults to `http://localhost:3000`.
+Every API request goes to `VITE_API_URL`. **It is required:** `lib/api.js`
+throws `VITE_API_URL is not set` at startup if it is missing, rather than
+silently falling back to a guessed address.
+
+- `.env.development` is committed and sets it to `http://localhost:3000`, so
+  `npm run dev` works out of the box.
+- For a production build, or to point at another server, copy `.env.example`
+  to `.env` (ignored by git) and set your own URL.
 
 ```
 VITE_API_URL=http://localhost:3000
 ```
+
+### Demo mode
+
+Open the app with `?demo` in the URL (for example
+`http://localhost:5173/?demo`) to try it without an account:
+
+1. `main.jsx` calls `startDemoIfRequested()` from `lib/demo.js` **before**
+   rendering anything.
+2. It removes `?demo` from the address bar, so a refresh does not start a
+   second demo.
+3. If a demo session is still valid (`hasActiveDemo()`), it stops there and
+   reuses it.
+4. Otherwise it calls `POST /auth/demo` with your time zone, and saves the
+   returned `token` and `expiresAt`.
+5. It marks the profile as onboarded (name `Guest` if none is set), so you
+   land straight on Today instead of the onboarding screen.
+
+If the demo request fails, the error is logged to the console and the app
+renders normally — you just see the login screen. Signing out clears both the
+token and the demo expiry.
 
 ### Signing in
 
@@ -92,7 +118,8 @@ code comments.
 
 ```
 src/
-├─ main.jsx                 React entry point (mounts <AuthGate/>)
+├─ main.jsx                 React entry point: starts a demo if ?demo,
+│                           then mounts <AuthGate/>
 ├─ AuthGate.jsx             token present?  ->  <App/>  :  <LoginView/>
 ├─ App.jsx             (14) the shell: all state, effects, mutations, routing
 │
@@ -104,7 +131,8 @@ src/
 │  ├─ seed.js         (5)   optional example data
 │  ├─ transfer.js    (16)   JSON export / import (backup)
 │  ├─ api.js                HTTP client: get / post / put / del
-│  └─ auth.js               token in localStorage + the 401 handler
+│  ├─ auth.js               token + demo expiry in localStorage, 401 handler
+│  └─ demo.js               ?demo in the URL -> POST /auth/demo -> signed in
 │
 ├─ components/              reusable presentation pieces
 │  ├─ icons.jsx       (6)   every inline SVG icon
@@ -231,6 +259,7 @@ marks each one with one of two comments:
 | Endpoint | File | Notes |
 |---|---|---|
 | `POST /auth/login` | `views/LoginView.jsx` → `submit` | `{ email, password }` in, `{ token }` back. |
+| `POST /auth/demo` | `lib/demo.js` → `startDemoIfRequested` | `{ tz }` in, `{ token, expiresAt }` back. Only called when the URL has `?demo`. |
 | `GET /goals`, `GET /tasks` | `App.jsx` → `loadAll` | Initial load, after login. |
 | `POST /tasks` | `App.jsx` → `addTask` | Server returns the created task (with its id). |
 | `PUT /tasks/:id { done }` | `App.jsx` → `toggleTask` | |
@@ -256,7 +285,10 @@ Every response is expected in the envelope `api.js` unwraps:
 ### Current state of the API work
 
 `src/lib/auth.js` stores, reads and clears a bearer token under
-`momentum_token` in `localStorage`. It also holds a single "unauthorized"
+`momentum_token` in `localStorage`. For demo sessions it also keeps the expiry
+under `momentum_demo_expires`: `saveDemo()` writes it, `hasActiveDemo()`
+checks there is a token and the expiry is still in the future, and
+`clearToken()` removes both keys. It also holds a single "unauthorized"
 callback: `AuthGate` registers it with `setUnauthorizedHandler()`, and
 `api.js` fires it with `notifyUnauthorized()`.
 
@@ -394,6 +426,17 @@ calls `/auth/login`, `/goals` and `/tasks`. Where they disagree, the
   `setUnauthorizedHandler` / `notifyUnauthorized`; an expired or rejected
   token now returns you to the login screen from anywhere in the app.
 - **Removed `momentum-backup-sample.json`** from the repo.
+- **`VITE_API_URL` is now required.** `lib/api.js` no longer falls back to
+  `http://localhost:3000`; it throws at startup if the variable is missing.
+  `.env.development` was added so local development still works with no
+  setup. See [Run it](#run-it).
+- **`.claude/` is ignored by git** — local editor/assistant settings stay out
+  of the repo.
+- **Added demo mode** (`lib/demo.js`). Visiting the app with `?demo` gets a
+  temporary account from `POST /auth/demo`, skips onboarding and signs you in.
+  `lib/auth.js` gained `saveDemo` / `hasActiveDemo` and the
+  `momentum_demo_expires` key, and `main.jsx` now waits for the demo check
+  before rendering. See [Demo mode](#demo-mode).
 
 ---
 
