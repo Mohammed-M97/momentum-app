@@ -5,8 +5,10 @@
 
 import { useEffect, useRef } from "react";
 import { IconClose } from "./icons.jsx";
+import { useI18n } from "../lib/i18n.js";
 
 export function Modal({ title, onClose, children, footer, labelledBy = "modal-title" }) {
+  const { t } = useI18n();
   const ref = useRef(null);
   useEffect(() => {
     const node = ref.current;
@@ -33,7 +35,7 @@ export function Modal({ title, onClose, children, footer, labelledBy = "modal-ti
       <div className="modal" ref={ref} role="dialog" aria-modal="true" aria-labelledby={labelledBy}>
         <div className="modal-head">
           <h2 className="modal-title" id={labelledBy}>{title}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Close dialog"><IconClose size={17} /></button>
+          <button className="icon-btn" onClick={onClose} aria-label={t("common.close")}><IconClose size={17} /></button>
         </div>
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}
@@ -42,12 +44,13 @@ export function Modal({ title, onClose, children, footer, labelledBy = "modal-ti
   );
 }
 
-export function ConfirmDialog({ title, message, confirmLabel = "Delete", onConfirm, onCancel, extraActions }) {
+export function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCancel, extraActions }) {
+  const { t } = useI18n();
   return (
     <Modal title={title} onClose={onCancel} labelledBy="confirm-title"
       footer={<>
-        <button className="btn" onClick={onCancel}>Cancel</button>
-        <button className="btn danger" onClick={onConfirm}>{confirmLabel}</button>
+        <button className="btn" onClick={onCancel}>{t("common.cancel")}</button>
+        <button className="btn danger" onClick={onConfirm}>{confirmLabel || t("common.delete")}</button>
       </>}>
       <p className="confirm-msg">{message}</p>
       {extraActions}

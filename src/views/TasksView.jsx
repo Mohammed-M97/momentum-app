@@ -4,26 +4,38 @@
    lives here too since it is only ever opened from this screen.
    ======================================================================== */
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { EFFORT, EFFORT_KEYS } from "../lib/config.js";
 import { alive, touch } from "../lib/entities.js";
 import { todayStr, tomorrowStr, shiftDate, relativeLabel } from "../lib/dates.js";
+import { useI18n } from "../lib/i18n.js";
 import { Segmented, EmptyState, Modal, Field } from "../components/ui.jsx";
 import { IconPlus, IconLeft, IconRight, IconEdit, IconTrash, IconCheck } from "../components/icons.jsx";
 
-export function TasksView({ tasks, goals, categories, onAdd, onToggle, onEdit, onDelete }) {
+export function TasksView({ tasks, goals, categories, onAdd, onToggle, onEdit, onDelete, autoFocusAdd, onAutoFocused }) {
+  const { t } = useI18n();
   const [bucket, setBucket] = useState("today");
   const [customDate, setCustomDate] = useState(todayStr());
   const [draft, setDraft] = useState("");
   const [effort, setEffort] = useState("low");
   const [goalId, setGoalId] = useState("");
+  const inputRef = useRef(null);
+
+  /* Opened from the "New task" shortcut on the installed app: jump
+     straight into typing. Runs once, then tells App it is handled. */
+  useEffect(() => {
+    if (!autoFocusAdd) return;
+    if (inputRef.current) inputRef.current.focus();
+    if (onAutoFocused) onAutoFocused();
+  }, [autoFocusAdd, onAutoFocused]);
 
   const activeDate = bucket === "today" ? todayStr()
     : bucket === "tomorrow" ? tomorrowStr()
     : bucket === "date" ? customDate : null;
 
-  const list = tasks.filter((t) => alive(t) && (activeDate === null ? t.date === null : t.date === activeDate));
-  const heading = activeDate === null ? "Backlog" : relativeLabel(activeDate);
+  const list = tasks.filter((x) => alive(x) && (activeDate === null ? x.date === null : x.date === activeDate));
+  const heading = activeDate === null ? t("tasks.backlog") : relativeLabel(activeDate, t);
+  const headingLower = heading.toLowerCase();
 
   const submit = () => {
     const title = draft.trim();
@@ -35,70 +47,72 @@ export function TasksView({ tasks, goals, categories, onAdd, onToggle, onEdit, o
   return (
     <div className="view">
       <div className="rule">
-        <h2>Tasks</h2>
-        <span>plan the work, then live in Today</span>
+        <h2>{t("nav.tasks")}</h2>
+        <span>{t("tasks.hint")}</span>
       </div>
 
       <div className="bucket-row">
-        <Segmented label="Choose which day to plan" value={bucket} onChange={setBucket}
+        <Segmented label={t("tasks.chooseDay")} value={bucket} onChange={setBucket}
           options={[
-            { value: "today", label: "Today" },
-            { value: "tomorrow", label: "Tomorrow" },
-            { value: "date", label: "Pick a day" },
-            { value: "backlog", label: "Backlog" },
+            { value: "today", label: t("date.today") },
+            { value: "tomorrow", label: t("date.tomorrow") },
+            { value: "date", label: t("tasks.pickDay") },
+            { value: "backlog", label: t("tasks.backlog") },
           ]} />
         {bucket === "date" && (
           <div className="date-nav">
-            <button className="icon-btn" onClick={() => setCustomDate((d) => shiftDate(d, -1))} aria-label="Previous day"><IconLeft size={16} /></button>
-            <input type="date" className="inp" value={customDate} aria-label="Task date"
+            <button className="icon-btn" onClick={() => setCustomDate((d) => shiftDate(d, -1))} aria-label={t("tasks.prevDay")}><IconLeft size={16} className="flip-rtl" /></button>
+            <input type="date" className="inp" value={customDate} aria-label={t("tasks.date")}
               onChange={(e) => { if (e.target.value) setCustomDate(e.target.value); }} />
-            <button className="icon-btn" onClick={() => setCustomDate((d) => shiftDate(d, 1))} aria-label="Next day"><IconRight size={16} /></button>
+            <button className="icon-btn" onClick={() => setCustomDate((d) => shiftDate(d, 1))} aria-label={t("tasks.nextDay")}><IconRight size={16} className="flip-rtl" /></button>
           </div>
         )}
       </div>
 
       <div className="add-card">
-        <input className="inp grow" value={draft} placeholder={"Add a task to " + heading.toLowerCase()}
-          aria-label="New task title"
+        <input ref={inputRef} className="inp grow" value={draft} placeholder={t("tasks.addTo", { heading: headingLower })}
+          aria-label={t("tasks.newTitle")} enterKeyHint="done"
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") submit(); }} />
-        <select className="inp" value={effort} onChange={(e) => setEffort(e.target.value)} aria-label="Effort estimate">
-          {EFFORT_KEYS.map((k) => <option key={k} value={k}>{EFFORT[k].label}</option>)}
-        </select>
-        <select className="inp" value={goalId} onChange={(e) => setGoalId(e.target.value)} aria-label="Link to a goal">
-          <option value="">No goal</option>
-          {goals.filter((g) => alive(g) && g.status !== "done").map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
-        </select>
-        <button className="btn primary" onClick={submit} disabled={!draft.trim()}><IconPlus size={15} /> Add</button>
+        <div className="add-opts">
+          <select className="inp" value={effort} onChange={(e) => setEffort(e.target.value)} aria-label={t("tasks.effort")}>
+            {EFFORT_KEYS.map((k) => <option key={k} value={k}>{t("effort." + k)}</option>)}
+          </select>
+          <select className="inp" value={goalId} onChange={(e) => setGoalId(e.target.value)} aria-label={t("tasks.linkGoal")}>
+            <option value="">{t("common.noGoal")}</option>
+            {goals.filter((g) => alive(g) && g.status !== "done").map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
+          </select>
+          <button className="btn primary" onClick={submit} disabled={!draft.trim()}><IconPlus size={15} /> {t("common.add")}</button>
+        </div>
       </div>
 
       <div className="rule">
         <h2>{heading}</h2>
-        <span>{activeDate === null ? "unscheduled ideas, schedule them when you have room" : "five or fewer keeps it doable"}</span>
+        <span>{activeDate === null ? t("tasks.backlogHint") : t("tasks.dayHint")}</span>
       </div>
 
       {list.length === 0 ? (
-        <EmptyState title={activeDate === null ? "Backlog is empty" : "No tasks for " + heading.toLowerCase()}
-          body="Add one above. Small and specific beats big and vague." />
+        <EmptyState title={activeDate === null ? t("tasks.backlogEmpty") : t("tasks.noneFor", { heading: headingLower })}
+          body={t("tasks.emptyBody")} />
       ) : (
         <ul className="task-list">
-          {list.map((t) => {
-            const goal = goals.find((g) => g.id === t.goalId && alive(g));
+          {list.map((x) => {
+            const goal = goals.find((g) => g.id === x.goalId && alive(g));
             const cat = goal ? categories.find((c) => c.id === goal.categoryId && alive(c)) : null;
             return (
-              <li key={t.id} className={"task" + (t.done ? " done" : "")}>
-                <button className={"check" + (t.done ? " on" : "")} onClick={() => onToggle(t.id)}
-                  aria-pressed={t.done} aria-label={(t.done ? "Mark not done: " : "Mark done: ") + t.title}>
-                  {t.done && <IconCheck size={13} />}
+              <li key={x.id} className={"task" + (x.done ? " done" : "")}>
+                <button className={"check" + (x.done ? " on" : "")} onClick={() => onToggle(x.id)}
+                  aria-pressed={x.done} aria-label={t(x.done ? "common.markNotDone" : "common.markDone") + x.title}>
+                  {x.done && <IconCheck size={13} />}
                 </button>
                 <div className="task-main">
-                  <span className="task-title">{t.title}</span>
+                  <span className="task-title">{x.title}</span>
                   {goal && <span className="task-goal" style={{ color: cat ? cat.color : "inherit" }}>{goal.title}</span>}
                 </div>
-                <span className="effort"><i className="dot" style={{ background: EFFORT[t.effort].color }} />{EFFORT[t.effort].label}</span>
+                <span className="effort"><i className="dot" style={{ background: EFFORT[x.effort].color }} />{t("effort." + x.effort)}</span>
                 <span className="row-actions">
-                  <button className="icon-btn" onClick={() => onEdit(t)} aria-label={"Edit task: " + t.title}><IconEdit size={15} /></button>
-                  <button className="icon-btn danger-hover" onClick={() => onDelete(t)} aria-label={"Delete task: " + t.title}><IconTrash size={15} /></button>
+                  <button className="icon-btn" onClick={() => onEdit(x)} aria-label={t("tasks.edit") + x.title}><IconEdit size={15} /></button>
+                  <button className="icon-btn danger-hover" onClick={() => onDelete(x)} aria-label={t("tasks.delete") + x.title}><IconTrash size={15} /></button>
                 </span>
               </li>
             );
@@ -107,13 +121,14 @@ export function TasksView({ tasks, goals, categories, onAdd, onToggle, onEdit, o
       )}
 
       {activeDate !== null && list.length > 5 && (
-        <p className="notice">{list.length} tasks on one day. Move the least urgent to tomorrow or the backlog.</p>
+        <p className="notice">{t("tasks.tooMany", { n: list.length })}</p>
       )}
     </div>
   );
 }
 
 export function TaskModal({ task, goals, onSave, onClose }) {
+  const { t } = useI18n();
   const [d, setD] = useState({
     title: task.title, effort: task.effort, goalId: task.goalId || "",
     schedule: task.date === null ? "backlog" : "date", date: task.date || todayStr(),
@@ -126,39 +141,39 @@ export function TaskModal({ task, goals, onSave, onClose }) {
       date: d.schedule === "backlog" ? null : d.date }));
   };
   return (
-    <Modal title="Edit task" onClose={onClose} labelledBy="task-modal-title"
+    <Modal title={t("tasks.editTitle")} onClose={onClose} labelledBy="task-modal-title"
       footer={<>
-        <button className="btn" onClick={onClose}>Cancel</button>
-        <button className="btn primary" onClick={save} disabled={!d.title.trim()}>Save changes</button>
+        <button className="btn" onClick={onClose}>{t("common.cancel")}</button>
+        <button className="btn primary" onClick={save} disabled={!d.title.trim()}>{t("common.save")}</button>
       </>}>
-      <Field label="Task" htmlFor="t-title">
+      <Field label={t("tasks.task")} htmlFor="t-title">
         <input id="t-title" className="inp full" value={d.title}
           onChange={(e) => set("title", e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") save(); }} />
       </Field>
       <div className="grid-2">
-        <Field label="Effort" htmlFor="t-effort">
+        <Field label={t("tasks.effortLabel")} htmlFor="t-effort">
           <select id="t-effort" className="inp full" value={d.effort} onChange={(e) => set("effort", e.target.value)}>
-            {EFFORT_KEYS.map((k) => <option key={k} value={k}>{EFFORT[k].label}</option>)}
+            {EFFORT_KEYS.map((k) => <option key={k} value={k}>{t("effort." + k)}</option>)}
           </select>
         </Field>
-        <Field label="Goal" htmlFor="t-goal">
+        <Field label={t("tasks.goal")} htmlFor="t-goal">
           <select id="t-goal" className="inp full" value={d.goalId} onChange={(e) => set("goalId", e.target.value)}>
-            <option value="">No goal</option>
+            <option value="">{t("common.noGoal")}</option>
             {goals.filter(alive).map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
           </select>
         </Field>
       </div>
-      <Field label="When">
-        <Segmented label="Schedule" value={d.schedule} onChange={(v) => set("schedule", v)}
-          options={[{ value: "date", label: "On a day" }, { value: "backlog", label: "Backlog" }]} />
+      <Field label={t("tasks.when")}>
+        <Segmented label={t("tasks.schedule")} value={d.schedule} onChange={(v) => set("schedule", v)}
+          options={[{ value: "date", label: t("tasks.onDay") }, { value: "backlog", label: t("tasks.backlog") }]} />
       </Field>
       {d.schedule === "date" && (
         <div className="quick-dates">
-          <input type="date" className="inp" value={d.date} aria-label="Task date"
+          <input type="date" className="inp" value={d.date} aria-label={t("tasks.date")}
             onChange={(e) => { if (e.target.value) set("date", e.target.value); }} />
-          <button className="chip" onClick={() => set("date", todayStr())}>Today</button>
-          <button className="chip" onClick={() => set("date", tomorrowStr())}>Tomorrow</button>
+          <button className="chip" onClick={() => set("date", todayStr())}>{t("date.today")}</button>
+          <button className="chip" onClick={() => set("date", tomorrowStr())}>{t("date.tomorrow")}</button>
         </div>
       )}
     </Modal>

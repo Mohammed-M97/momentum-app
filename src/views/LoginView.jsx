@@ -27,8 +27,10 @@ import { useState } from "react";
 import { post } from "../lib/api.js";
 import { saveToken } from "../lib/auth.js";
 import { Field } from "../components/ui.jsx";
+import { useI18n } from "../lib/i18n.js";
 
 export default function LoginView({ onSuccess }) {
+  const { t, lang, setLang } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
@@ -52,7 +54,7 @@ export default function LoginView({ onSuccess }) {
       saveToken(result.token);
       onSuccess();
     } catch (err) {
-      setError(err && err.message ? err.message : "Could not sign you in");
+      setError(err && err.message ? err.message : t("login.failed"));
     } finally {
       setLoading(false);
     }
@@ -66,21 +68,25 @@ export default function LoginView({ onSuccess }) {
     <div className="momentum" data-theme={systemDark ? "dark" : "light"}>
       <div className="onboard">
         <div className="onboard-card">
+          <button className="btn sm lang-switch" onClick={() => setLang(lang === "ar" ? "en" : "ar")}
+            lang={lang === "ar" ? "en" : "ar"}>
+            {lang === "ar" ? "English" : "العربية"}
+          </button>
           <div className="logo lg" aria-hidden="true">M</div>
-          <h1 className="onboard-title">Welcome back</h1>
-          <p className="onboard-sub">Sign in to pick your momentum back up.</p>
+          <h1 className="onboard-title">{t("login.title")}</h1>
+          <p className="onboard-sub">{t("login.sub")}</p>
 
-          <Field label="Email" htmlFor="login-email">
-            <input id="login-email" className="inp full" type="email"
+          <Field label={t("login.email")} htmlFor="login-email">
+            <input id="login-email" className="inp full" type="email" dir="ltr"
               autoComplete="username" placeholder="you@example.com"
               value={email} disabled={loading}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={onKeyDown} />
           </Field>
 
-          <Field label="Password" htmlFor="login-password">
+          <Field label={t("login.password")} htmlFor="login-password">
             <input id="login-password" className="inp full" type="password"
-              autoComplete="current-password" placeholder="Your password"
+              autoComplete="current-password" placeholder={t("login.passwordPh")}
               value={password} disabled={loading}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={onKeyDown} />
@@ -92,7 +98,7 @@ export default function LoginView({ onSuccess }) {
 
           <div className="onboard-actions">
             <button className="btn primary" onClick={submit} disabled={loading}>
-              {loading ? "Signing in" : "Sign in"}
+              {loading ? t("login.signingIn") : t("login.signIn")}
             </button>
           </div>
         </div>

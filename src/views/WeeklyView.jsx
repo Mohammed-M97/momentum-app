@@ -7,8 +7,10 @@ import { useMemo } from "react";
 import { alive } from "../lib/entities.js";
 import { weekStartOf, todayStr, shortDate } from "../lib/dates.js";
 import { EmptyState } from "../components/ui.jsx";
+import { useI18n } from "../lib/i18n.js";
 
 export function WeeklyView({ tasks, weekStart }) {
+  const { t } = useI18n();
   /* HARD CONCEPT: metrics are queries, not tables -------------------------
      Everything on this screen is computed from the tasks array on every
      render (cached by useMemo). Nothing here is stored, so this whole
@@ -45,32 +47,32 @@ export function WeeklyView({ tasks, weekStart }) {
   return (
     <div className="view">
       <div className="rule">
-        <h2>Weekly momentum</h2>
-        <span>calculated from your tasks, nothing to fill in</span>
+        <h2>{t("weekly.title")}</h2>
+        <span>{t("weekly.hint")}</span>
       </div>
 
       <div className="stat-grid">
         <div className="stat">
-          <p className="stat-label">This week</p>
+          <p className="stat-label">{t("weekly.thisWeek")}</p>
           <p className="stat-value">{thisWeek.pct}%</p>
           {delta !== null
-            ? <p className={"stat-sub " + (delta >= 0 ? "up" : "down")}>{delta >= 0 ? "+" : ""}{delta}% vs last week</p>
-            : <p className="stat-sub muted">{thisWeek.done} of {thisWeek.total} done</p>}
+            ? <p className={"stat-sub " + (delta >= 0 ? "up" : "down")}><bdi dir="ltr">{delta >= 0 ? "+" : ""}{delta}%</bdi> {t("today.vsLastWeek")}</p>
+            : <p className="stat-sub muted">{t("weekly.ofDone", thisWeek)}</p>}
         </div>
         <div className="stat">
-          <p className="stat-label">Tasks finished</p>
+          <p className="stat-label">{t("weekly.finished")}</p>
           <p className="stat-value">{thisWeek.done}</p>
-          <p className="stat-sub muted">{lastWeek ? lastWeek.done + " last week" : "this week"}</p>
+          <p className="stat-sub muted">{lastWeek ? t("weekly.lastWeekN", { n: lastWeek.done }) : t("goals.thisWeek")}</p>
         </div>
         <div className="stat">
-          <p className="stat-label">Last week</p>
+          <p className="stat-label">{t("weekly.lastWeek")}</p>
           <p className="stat-value">{lastWeek ? lastWeek.pct + "%" : "--"}</p>
-          <p className="stat-sub muted">{lastWeek ? "your baseline" : "no data yet"}</p>
+          <p className="stat-sub muted">{lastWeek ? t("weekly.baseline") : t("weekly.noData")}</p>
         </div>
       </div>
 
-      <section className="chart-card" aria-label="Weekly completion chart">
-        <p className="chart-title">Last {recent.length} week{recent.length === 1 ? "" : "s"}</p>
+      <section className="chart-card" aria-label={t("weekly.chart")}>
+        <p className="chart-title">{t("weekly.lastN", { n: recent.length })}</p>
         {hasHistory ? (
           <>
             <div className="chart">
@@ -80,17 +82,17 @@ export function WeeklyView({ tasks, weekStart }) {
                   <div className="cbar-track">
                     <div className={"cbar-fill" + (w.week === currentKey ? " current" : "")}
                       style={{ height: Math.max(3, w.pct) + "%" }} role="img"
-                      aria-label={"Week of " + shortDate(w.week) + ": " + w.pct + " percent, " + w.done + " of " + w.total + " tasks"} />
+                      aria-label={t("weekly.barAria", { week: shortDate(w.week), pct: w.pct, done: w.done, total: w.total })} />
                   </div>
                   <span className={"cbar-label" + (w.week === currentKey ? " current" : "")}>{shortDate(w.week)}</span>
                 </div>
               ))}
             </div>
-            <p className="chart-foot">Each bar is the share of that week's tasks you finished. The filled bar is this week.</p>
+            <p className="chart-foot">{t("weekly.foot")}</p>
           </>
         ) : (
-          <EmptyState title="No history yet"
-            body="Finish a few tasks and this chart fills itself in. One week of real data beats any starting number." />
+          <EmptyState title={t("weekly.noHistory")}
+            body={t("weekly.noHistoryBody")} />
         )}
       </section>
     </div>

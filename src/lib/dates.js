@@ -1,6 +1,9 @@
 /* ===== 3. dates ==========================================================
-   Pure date + week math. No dependency on anything else in the app.
+   Pure date + week math. The only outside dependency is getLocale() from
+   i18n, so labels follow the chosen language (Gregorian, Latin digits).
    ======================================================================== */
+
+import { getLocale } from "./i18n.js";
 
 export const pad = (n) => String(n).padStart(2, "0");
 export const fmtDate = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
@@ -16,12 +19,13 @@ export function weekStartOf(dateStr, weekStart) {
   d.setDate(d.getDate() - diff);
   return fmtDate(d);
 }
-export const shortDate = (s) => parseDate(s).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-export const longDate = (s) => parseDate(s).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
-export function relativeLabel(s) {
-  if (s === todayStr()) return "Today";
-  if (s === tomorrowStr()) return "Tomorrow";
-  if (s === shiftDate(todayStr(), -1)) return "Yesterday";
+export const shortDate = (s) => parseDate(s).toLocaleDateString(getLocale(), { month: "short", day: "numeric" });
+export const longDate = (s) => parseDate(s).toLocaleDateString(getLocale(), { weekday: "long", month: "long", day: "numeric" });
+/* t comes from useI18n() in the calling view. */
+export function relativeLabel(s, t) {
+  if (s === todayStr()) return t("date.today");
+  if (s === tomorrowStr()) return t("date.tomorrow");
+  if (s === shiftDate(todayStr(), -1)) return t("date.yesterday");
   return shortDate(s);
 }
 /* Decision 3: targetDate helper. Weeks remaining until a goal's date. */
