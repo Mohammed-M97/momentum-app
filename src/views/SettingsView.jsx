@@ -11,16 +11,20 @@ import { useState, useRef } from "react";
 import { touch } from "../lib/entities.js";
 import { Segmented, Field } from "../components/ui.jsx";
 import { readFileAsText, parseImport } from "../lib/transfer.js";
+import { useI18n } from "../lib/i18n.js";
+import { useInstall } from "../lib/install.js";
 
 /* The three real-world week conventions. The values are JS day numbers,
    matching what Date.getDay() returns and what weekStartOf() expects. */
 const WEEK_STARTS = [
-  { value: 6, label: "Saturday" },
-  { value: 0, label: "Sunday" },
-  { value: 1, label: "Monday" },
+  { value: 6, key: "set.sat" },
+  { value: 0, key: "set.sun" },
+  { value: 1, key: "set.mon" },
 ];
 
-export function SettingsView({ profile, setProfile, backendLabel, saveStatus, onReset, onExport, onImport, onLogout }) {
+export function SettingsView({ profile, setProfile, lang, setLang, backendLabel, saveStatus, onReset, onExport, onImport, onLogout }) {
+  const { t } = useI18n();
+  const install = useInstall();
   const fileRef = useRef(null);
   const [importError, setImportError] = useState("");
 
@@ -40,65 +44,93 @@ export function SettingsView({ profile, setProfile, backendLabel, saveStatus, on
 
   return (
     <div className="view">
-      <div className="rule"><h2>Settings</h2></div>
+      <div className="rule"><h2>{t("set.title")}</h2></div>
 
       <section className="panel">
-        <h3 className="panel-title">Profile</h3>
-        <Field label="Your name" hint="used in the greeting on Today" htmlFor="s-name">
-          <input id="s-name" className="inp full" value={profile.name} placeholder="Your name"
+        <h3 className="panel-title">{t("set.language")}</h3>
+        <Segmented label={t("set.language")} value={lang} onChange={setLang}
+          options={[
+            { value: "ar", label: "العربية" },
+            { value: "en", label: "English" },
+          ]} />
+        <p className="panel-note">{t("set.languageNote")}</p>
+      </section>
+
+      <section className="panel">
+        <h3 className="panel-title">{t("set.install")}</h3>
+        {install.installed ? (
+          <p className="panel-note">{t("set.installed")}</p>
+        ) : (
+          <>
+            <p className="panel-note">{t("set.installNote")}</p>
+            {install.canPrompt ? (
+              <div className="panel-actions">
+                <button className="btn primary" onClick={install.prompt}>{t("set.installBtn")}</button>
+              </div>
+            ) : (
+              <p className="panel-note">{t("set.installManual")}</p>
+            )}
+          </>
+        )}
+      </section>
+
+      <section className="panel">
+        <h3 className="panel-title">{t("set.profile")}</h3>
+        <Field label={t("set.name")} hint={t("set.nameHint")} htmlFor="s-name">
+          <input id="s-name" className="inp full" value={profile.name} placeholder={t("set.namePh")}
             onChange={(e) => setProfile(touch(profile, { name: e.target.value }))} />
         </Field>
-        <p className="panel-note">Leave it empty for a plain greeting with no name.</p>
+        <p className="panel-note">{t("set.nameNote")}</p>
       </section>
 
       <section className="panel">
-        <h3 className="panel-title">Appearance</h3>
-        <Segmented label="Theme" value={profile.theme} onChange={(v) => setProfile(touch(profile, { theme: v }))}
+        <h3 className="panel-title">{t("set.appearance")}</h3>
+        <Segmented label={t("set.theme")} value={profile.theme} onChange={(v) => setProfile(touch(profile, { theme: v }))}
           options={[
-            { value: "light", label: "Light" },
-            { value: "dark", label: "Dark" },
-            { value: "system", label: "Match system" },
+            { value: "light", label: t("set.light") },
+            { value: "dark", label: t("set.dark") },
+            { value: "system", label: t("set.system") },
           ]} />
-        <p className="panel-note">Match system follows your device setting until you choose light or dark yourself.</p>
+        <p className="panel-note">{t("set.themeNote")}</p>
       </section>
 
       <section className="panel">
-        <h3 className="panel-title">Week</h3>
-        <Segmented label="Week starts on" value={profile.weekStart}
+        <h3 className="panel-title">{t("set.week")}</h3>
+        <Segmented label={t("set.weekStarts")} value={profile.weekStart}
           onChange={(v) => setProfile(touch(profile, { weekStart: v }))}
-          options={WEEK_STARTS} />
-        <p className="panel-note">Your weekly percentage and the chart group tasks from this day onward. Changing it regroups your history immediately; no data is altered.</p>
+          options={WEEK_STARTS.map((w) => ({ value: w.value, label: t(w.key) }))} />
+        <p className="panel-note">{t("set.weekNote")}</p>
       </section>
 
       <section className="panel">
-        <h3 className="panel-title">Backup</h3>
-        <p className="panel-note">Everything lives in this browser, so a cleared cache means a fresh start. Export gives you one JSON file with all of it.</p>
+        <h3 className="panel-title">{t("set.backup")}</h3>
+        <p className="panel-note">{t("set.backupNote")}</p>
         <div className="panel-actions">
-          <button className="btn" onClick={onExport}>Export backup</button>
-          <button className="btn" onClick={() => fileRef.current && fileRef.current.click()}>Import backup</button>
+          <button className="btn" onClick={onExport}>{t("set.export")}</button>
+          <button className="btn" onClick={() => fileRef.current && fileRef.current.click()}>{t("set.import")}</button>
           <input ref={fileRef} type="file" accept="application/json,.json"
             style={{ display: "none" }} onChange={pickFile} />
         </div>
         {importError && <p className="panel-error">{importError}</p>}
-        <p className="panel-note">Importing replaces everything currently here, so export first if you are unsure.</p>
+        <p className="panel-note">{t("set.importNote")}</p>
       </section>
 
       <section className="panel">
-        <h3 className="panel-title">Storage</h3>
+        <h3 className="panel-title">{t("set.storage")}</h3>
         <p className="panel-note">{backendLabel}.</p>
         {saveStatus.state === "error" && (
-          <p className="panel-error">Last save failed: {saveStatus.message}.</p>
+          <p className="panel-error">{t("set.lastFailed", { msg: saveStatus.message })}</p>
         )}
         <div className="panel-actions">
-          <button className="btn danger" onClick={onReset}>Erase everything</button>
+          <button className="btn danger" onClick={onReset}>{t("set.erase")}</button>
         </div>
       </section>
 
       <section className="panel">
-        <h3 className="panel-title">Sign out</h3>
-        <p className="panel-note">You can sign back in at any time.</p>
+        <h3 className="panel-title">{t("set.signOutTitle")}</h3>
+        <p className="panel-note">{t("set.signOutNote")}</p>
         <div className="panel-actions">
-          <button className="btn" onClick={onLogout}>Sign out</button>
+          <button className="btn" onClick={onLogout}>{t("set.signOut")}</button>
         </div>
       </section>
     </div>
@@ -106,22 +138,23 @@ export function SettingsView({ profile, setProfile, backendLabel, saveStatus, on
 }
 
 export function Onboarding({ onChoose }) {
+  const { t } = useI18n();
   const [name, setName] = useState("");
   return (
     <div className="onboard">
       <div className="onboard-card">
         <div className="logo lg" aria-hidden="true">M</div>
         <h1 className="onboard-title">Momentum</h1>
-        <p className="onboard-sub">Goals you can see, tasks small enough to finish, and a weekly number that moves on its own.</p>
-        <Field label="What should I call you?" hint="optional" htmlFor="ob-name">
-          <input id="ob-name" className="inp full" value={name} placeholder="Your name"
+        <p className="onboard-sub">{t("onb.sub")}</p>
+        <Field label={t("onb.callYou")} hint={t("common.optional")} htmlFor="ob-name">
+          <input id="ob-name" className="inp full" value={name} placeholder={t("set.namePh")}
             onChange={(e) => setName(e.target.value)} />
         </Field>
         <div className="onboard-actions">
-          <button className="btn primary" onClick={() => onChoose("empty", name.trim())}>Start empty</button>
-          <button className="btn" onClick={() => onChoose("demo", name.trim())}>Load example data</button>
+          <button className="btn primary" onClick={() => onChoose("empty", name.trim())}>{t("onb.empty")}</button>
+          <button className="btn" onClick={() => onChoose("demo", name.trim())}>{t("onb.example")}</button>
         </div>
-        <p className="onboard-note">Example data adds a sample roadmap and goals so you can see how the parts fit. Erase it any time in Settings. No invented history; the weekly chart only ever shows work you actually did.</p>
+        <p className="onboard-note">{t("onb.note")}</p>
       </div>
     </div>
   );

@@ -65,22 +65,28 @@ import { SettingsView, Onboarding } from "./views/SettingsView.jsx";
 import "./styles/momentum.css";
 
 import { get, post, put, del } from "./lib/api";
+import { useI18n } from "./lib/i18n.js";
+import { consumeLaunchIntent } from "./lib/launch.js";
 
 /* The five "work" sections that appear in the nav bars. Settings is
    deliberately NOT here: it lives as an icon-only button in the topbar next
    to the theme toggle, so the nav stays focused on doing the work. */
 const TABS = [
-  { id: "today", label: "Today", Icon: IconToday },
-  { id: "tasks", label: "Tasks", Icon: IconTasks },
-  { id: "goals", label: "Goals", Icon: IconGoals },
-  { id: "weekly", label: "Weekly", Icon: IconWeekly },
-  { id: "roadmap", label: "Roadmap", Icon: IconRoadmap },
+  { id: "today", Icon: IconToday },
+  { id: "tasks", Icon: IconTasks },
+  { id: "goals", Icon: IconGoals },
+  { id: "weekly", Icon: IconWeekly },
+  { id: "roadmap", Icon: IconRoadmap },
 ];
 
 export default function App({ onLogout }) {
+  const { t, lang, setLang } = useI18n();
+  /* Long-press shortcuts on the installed app land here (lib/launch.js). */
+  const [launch] = useState(() => consumeLaunchIntent());
   const [hydrated, setHydrated] = useState(false);
   const [loadError, setLoadError] = useState(null);
-  const [tab, setTab] = useState("today");
+  const [tab, setTab] = useState(launch.tab || "today");
+  const [focusAdd, setFocusAdd] = useState(launch.newTask);
   const [profile, setProfile] = useState(DEFAULT_PROFILE);
   const [categories, setCategories] = useState([]);
   const [goals, setGoals] = useState([]);
@@ -129,7 +135,7 @@ export default function App({ onLogout }) {
     } catch (err) {
       if (!mounted.current) return;
       setLoadError(
-        err && err.message ? err.message : "Could not load your data",
+        err && err.message ? err.message : t("load.errorTitle"),
       );
     }
   }, []);
@@ -170,6 +176,14 @@ export default function App({ onLogout }) {
         ? "dark"
         : "light"
       : profile.theme;
+
+  /* Paint the page behind the app and the phone status bar (installed
+     app) in the active theme, not just the OS preference. */
+  useEffect(() => {
+    const bg = theme === "dark" ? "#14150f" : "#f1f1ec";
+    document.body.style.background = bg;
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", bg));
+  }, [theme]);
 
   const weekMath = useMemo(() => {
     const map = {};
@@ -247,8 +261,8 @@ export default function App({ onLogout }) {
   const askDeleteTask = (task) =>
     setConfirm({
       kind: "task",
-      title: "Delete this task?",
-      message: '"' + task.title + '" will be removed.',
+      title: t("confirm.taskTitle"),
+      message: t("common.removed", { title: task.title }),
       onConfirm: () => {
         softDeleteTask(task.id);
         setConfirm(null);
@@ -294,17 +308,11 @@ export default function App({ onLogout }) {
     setDeleteLinked(false);
     setConfirm({
       kind: "goal",
-      title: "Delete this goal?",
+      title: t("confirm.goalTitle"),
       linked,
       message: linked
-        ? '"' +
-          goal.title +
-          '" has ' +
-          linked +
-          " linked task" +
-          (linked === 1 ? "" : "s") +
-          ". By default those tasks stay and lose the link."
-        : '"' + goal.title + '" will be removed.',
+        ? t("confirm.goalLinked", { title: goal.title, n: linked })
+        : t("common.removed", { title: goal.title }),
       /* API WIRED: DELETE /goals/:id?tasks=delete|unlink, then GET /tasks resync */
       onConfirm: async (alsoTasks) => {
         setConfirm(null);
@@ -331,9 +339,8 @@ export default function App({ onLogout }) {
   const askDeleteRoadmap = (rm) =>
     setConfirm({
       kind: "roadmap",
-      title: "Delete this roadmap?",
-      message:
-        '"' + rm.title + '" and all of its phases and steps will be removed.',
+      title: t("confirm.roadmapTitle"),
+      message: t("confirm.roadmapMsg", { title: rm.title }),
       onConfirm: () => {
         setRoadmaps((p) =>
           p.map((r) =>
@@ -348,15 +355,8 @@ export default function App({ onLogout }) {
   const askDeletePhase = (phase, doDelete) =>
     setConfirm({
       kind: "phase",
-      title: "Delete this phase?",
-      message:
-        '"' +
-        phase.title +
-        '" and its ' +
-        phase.items.length +
-        " step" +
-        (phase.items.length === 1 ? "" : "s") +
-        " will be removed.",
+      title: t("confirm.phaseTitle"),
+      message: t("confirm.phaseMsg", { title: phase.title, n: phase.items.length }),
       onConfirm: () => {
         doDelete();
         setConfirm(null);
@@ -374,19 +374,15 @@ export default function App({ onLogout }) {
   /* SettingsView has already parsed and validated the file; all that is left
      is to confirm, because importing throws away what is here now. */
   const askImport = (incoming) => {
-    const n = (count, word) => count + " " + word + (count === 1 ? "" : "s");
     setConfirm({
       kind: "import",
-      title: "Replace everything with this backup?",
-      confirmLabel: "Import and replace",
-      message:
-        "This backup holds " +
-        n(incoming.goals.length, "goal") +
-        ", " +
-        n(incoming.tasks.length, "task") +
-        " and " +
-        n(incoming.roadmaps.length, "roadmap") +
-        ". Everything currently in Momentum will be replaced by it.",
+      title: t("confirm.importTitle"),
+      confirmLabel: t("confirm.importBtn"),
+      message: t("confirm.importMsg", {
+        g: incoming.goals.length,
+        t: incoming.tasks.length,
+        r: incoming.roadmaps.length,
+      }),
       onConfirm: () => {
         setProfile({
           ...DEFAULT_PROFILE,
@@ -428,10 +424,9 @@ export default function App({ onLogout }) {
   const askReset = () =>
     setConfirm({
       kind: "reset",
-      title: "Erase everything?",
-      confirmLabel: "Erase everything",
-      message:
-        "All goals, tasks, roadmaps and categories will be deleted permanently.",
+      title: t("confirm.resetTitle"),
+      confirmLabel: t("confirm.resetBtn"),
+      message: t("confirm.resetMsg"),
       onConfirm: () => {
         setGoals([]);
         setTasks([]);
@@ -448,14 +443,12 @@ export default function App({ onLogout }) {
       <div className="momentum" data-theme="light">
         <div className="loading">
           <p>
-            <strong>Could not load your data</strong>
+            <strong>{t("load.errorTitle")}</strong>
           </p>
           <p className="muted">{loadError}</p>
-          <p className="muted">
-            Nothing has been saved over. Your data is still there.
-          </p>
+          <p className="muted">{t("load.safe")}</p>
           <button className="btn primary" onClick={loadAll}>
-            Try again
+            {t("load.retry")}
           </button>
         </div>
       </div>
@@ -467,7 +460,7 @@ export default function App({ onLogout }) {
       <div className="momentum" data-theme="light">
         <div className="loading">
           <div className="spinner" />
-          <p>Loading your data</p>
+          <p>{t("load.loading")}</p>
         </div>
       </div>
     );
@@ -482,11 +475,11 @@ export default function App({ onLogout }) {
 
   const statusText =
     saveStatus.state === "saving"
-      ? "Saving"
+      ? t("save.saving")
       : saveStatus.state === "error"
-        ? "Not saved"
+        ? t("save.error")
         : saveStatus.state === "saved"
-          ? "Saved"
+          ? t("save.saved")
           : "";
 
   return (
@@ -513,11 +506,7 @@ export default function App({ onLogout }) {
           )}
           <button
             className="icon-btn"
-            aria-label={
-              theme === "dark"
-                ? "Switch to light theme"
-                : "Switch to dark theme"
-            }
+            aria-label={theme === "dark" ? t("theme.toLight") : t("theme.toDark")}
             onClick={() =>
               setProfile(
                 touch(profile, { theme: theme === "dark" ? "light" : "dark" }),
@@ -529,7 +518,7 @@ export default function App({ onLogout }) {
           <button
             className={"icon-btn" + (tab === "settings" ? " on" : "")}
             onClick={() => setTab("settings")}
-            aria-label="Settings"
+            aria-label={t("nav.settings")}
             aria-current={tab === "settings" ? "page" : undefined}
           >
             <IconSettings size={17} />
@@ -537,15 +526,15 @@ export default function App({ onLogout }) {
         </div>
       </header>
 
-      <nav className="tabs" aria-label="Sections">
-        {TABS.map((t) => (
+      <nav className="tabs" aria-label={t("nav.sections")}>
+        {TABS.map((tb) => (
           <button
-            key={t.id}
-            className={"tab" + (tab === t.id ? " on" : "")}
-            onClick={() => setTab(t.id)}
-            aria-current={tab === t.id ? "page" : undefined}
+            key={tb.id}
+            className={"tab" + (tab === tb.id ? " on" : "")}
+            onClick={() => setTab(tb.id)}
+            aria-current={tab === tb.id ? "page" : undefined}
           >
-            <t.Icon size={16} /> {t.label}
+            <tb.Icon size={16} /> {t("nav." + tb.id)}
           </button>
         ))}
       </nav>
@@ -569,8 +558,10 @@ export default function App({ onLogout }) {
             categories={categories}
             onAdd={addTask}
             onToggle={toggleTask}
-            onEdit={(t) => setTaskModal(t)}
+            onEdit={(x) => setTaskModal(x)}
             onDelete={askDeleteTask}
+            autoFocusAdd={focusAdd}
+            onAutoFocused={() => setFocusAdd(false)}
           />
         )}
         {tab === "goals" && (
@@ -600,7 +591,9 @@ export default function App({ onLogout }) {
           <SettingsView
             profile={profile}
             setProfile={setProfile}
-            backendLabel={store.label}
+            lang={lang}
+            setLang={setLang}
+            backendLabel={t("storage." + store.id)}
             saveStatus={saveStatus}
             onReset={askReset}
             onExport={exportData}
@@ -637,7 +630,7 @@ export default function App({ onLogout }) {
         <ConfirmDialog
           title={confirm.title}
           message={confirm.message}
-          confirmLabel={confirm.confirmLabel || "Delete"}
+          confirmLabel={confirm.confirmLabel || t("common.delete")}
           onCancel={() => setConfirm(null)}
           onConfirm={() => confirm.onConfirm(deleteLinked)}
           extraActions={
@@ -648,25 +641,24 @@ export default function App({ onLogout }) {
                   checked={deleteLinked}
                   onChange={(e) => setDeleteLinked(e.target.checked)}
                 />
-                Delete the {confirm.linked} linked task
-                {confirm.linked === 1 ? "" : "s"} as well
+                {t("confirm.goalAlso", { n: confirm.linked })}
               </label>
             ) : null
           }
         />
       )}
 
-      <nav className="bottombar" aria-label="Sections">
-        {TABS.map((t) => (
+      <nav className="bottombar" aria-label={t("nav.sections")}>
+        {TABS.map((tb) => (
           <button
-            key={t.id}
-            className={"bottom-tab" + (tab === t.id ? " on" : "")}
-            onClick={() => setTab(t.id)}
-            aria-label={t.label}
-            aria-current={tab === t.id ? "page" : undefined}
+            key={tb.id}
+            className={"bottom-tab" + (tab === tb.id ? " on" : "")}
+            onClick={() => setTab(tb.id)}
+            aria-label={t("nav." + tb.id)}
+            aria-current={tab === tb.id ? "page" : undefined}
           >
-            <t.Icon size={19} />
-            <span>{t.label}</span>
+            <tb.Icon size={19} />
+            <span>{t("nav." + tb.id)}</span>
           </button>
         ))}
       </nav>

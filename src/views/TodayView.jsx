@@ -6,42 +6,44 @@
 import { EFFORT } from "../lib/config.js";
 import { alive } from "../lib/entities.js";
 import { todayStr } from "../lib/dates.js";
+import { useI18n } from "../lib/i18n.js";
 import { Bar, EmptyState } from "../components/ui.jsx";
 import { IconPlus, IconCheck } from "../components/icons.jsx";
 
 export function TodayView({ tasks, goals, categories, profile, weekMath, onToggle, goTasks }) {
+  const { t } = useI18n();
   const today = todayStr();
-  const list = tasks.filter((t) => alive(t) && t.date === today);
-  const doneCount = list.filter((t) => t.done).length;
+  const list = tasks.filter((x) => alive(x) && x.date === today);
+  const doneCount = list.filter((x) => x.done).length;
   const delta = weekMath.lastWeekPct === null ? null : weekMath.weekPct - weekMath.lastWeekPct;
 
   const greeting = (() => {
     const h = new Date().getHours();
-    const part = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
-    return profile.name ? part + ", " + profile.name : part;
+    const part = t(h < 12 ? "today.morning" : h < 18 ? "today.afternoon" : "today.evening");
+    return profile.name ? t("today.greetName", { part, name: profile.name }) : part;
   })();
   const message = list.length === 0
-    ? "No tasks scheduled for today. Plan one in the Tasks tab; small enough that starting feels easy."
+    ? t("today.msgEmpty")
     : doneCount === list.length
-      ? "All clear. A finished day beats a perfect plan."
+      ? t("today.msgAllDone")
       : doneCount === 0
-        ? "Pick the smallest item and start it. Momentum follows action."
-        : "You have started. Keep the chain going.";
+        ? t("today.msgNone")
+        : t("today.msgStarted");
 
   return (
     <div className="view">
-      <section className="hero" aria-label="Progress summary">
+      <section className="hero" aria-label={t("today.summary")}>
         <div className="hero-top">
           <div>
             <p className="eyebrow">{greeting}</p>
             <h1 className="hero-count">
-              {doneCount}<span className="hero-sep">/</span>{list.length}
-              <span className="hero-unit"> done today</span>
+              <bdi dir="ltr" className="num">{doneCount}<span className="hero-sep">/</span>{list.length}</bdi>
+              <span className="hero-unit">{t("today.doneToday")}</span>
             </h1>
           </div>
           {delta !== null && (
             <div className={"delta " + (delta >= 0 ? "up" : "down")}>
-              <strong>{delta >= 0 ? "+" : ""}{delta}%</strong><span>vs last week</span>
+              <strong dir="ltr">{delta >= 0 ? "+" : ""}{delta}%</strong><span>{t("today.vsLastWeek")}</span>
             </div>
           )}
         </div>
@@ -50,31 +52,31 @@ export function TodayView({ tasks, goals, categories, profile, weekMath, onToggl
       </section>
 
       <div className="rule">
-        <h2>Today</h2>
-        <span>tick things off here, plan in Tasks</span>
-        <button className="btn sm push" onClick={goTasks}><IconPlus size={14} /> Plan tasks</button>
+        <h2>{t("nav.today")}</h2>
+        <span>{t("today.hint")}</span>
+        <button className="btn sm push" onClick={goTasks}><IconPlus size={14} /> {t("today.plan")}</button>
       </div>
 
       {list.length === 0 ? (
-        <EmptyState title="Nothing scheduled"
-          body="Open the Tasks tab to schedule work for today."
-          action={<button className="btn primary" onClick={goTasks}>Go to Tasks</button>} />
+        <EmptyState title={t("today.emptyTitle")}
+          body={t("today.emptyBody")}
+          action={<button className="btn primary" onClick={goTasks}>{t("today.goTasks")}</button>} />
       ) : (
         <ul className="task-list">
-          {list.map((t) => {
-            const goal = goals.find((g) => g.id === t.goalId && alive(g));
+          {list.map((x) => {
+            const goal = goals.find((g) => g.id === x.goalId && alive(g));
             const cat = goal ? categories.find((c) => c.id === goal.categoryId && alive(c)) : null;
             return (
-              <li key={t.id} className={"task" + (t.done ? " done" : "")}>
-                <button className={"check" + (t.done ? " on" : "")} onClick={() => onToggle(t.id)}
-                  aria-pressed={t.done} aria-label={(t.done ? "Mark not done: " : "Mark done: ") + t.title}>
-                  {t.done && <IconCheck size={13} />}
+              <li key={x.id} className={"task" + (x.done ? " done" : "")}>
+                <button className={"check" + (x.done ? " on" : "")} onClick={() => onToggle(x.id)}
+                  aria-pressed={x.done} aria-label={t(x.done ? "common.markNotDone" : "common.markDone") + x.title}>
+                  {x.done && <IconCheck size={13} />}
                 </button>
                 <div className="task-main">
-                  <span className="task-title">{t.title}</span>
+                  <span className="task-title">{x.title}</span>
                   {goal && <span className="task-goal" style={{ color: cat ? cat.color : "inherit" }}>{goal.title}</span>}
                 </div>
-                <span className="effort"><i className="dot" style={{ background: EFFORT[t.effort].color }} />{EFFORT[t.effort].label}</span>
+                <span className="effort"><i className="dot" style={{ background: EFFORT[x.effort].color }} />{t("effort." + x.effort)}</span>
               </li>
             );
           })}
