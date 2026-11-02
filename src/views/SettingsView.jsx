@@ -22,7 +22,7 @@ const WEEK_STARTS = [
   { value: 1, key: "set.mon" },
 ];
 
-export function SettingsView({ profile, setProfile, lang, setLang, backendLabel, saveStatus, onReset, onExport, onImport, onLogout }) {
+export function SettingsView({ profile, setProfile, lang, setLang, backendLabel, saveStatus, onReset, onExport, onImport, onLogout, isDemo }) {
   const { t } = useI18n();
   const install = useInstall();
   const fileRef = useRef(null);
@@ -107,12 +107,16 @@ export function SettingsView({ profile, setProfile, lang, setLang, backendLabel,
         <p className="panel-note">{t("set.backupNote")}</p>
         <div className="panel-actions">
           <button className="btn" onClick={onExport}>{t("set.export")}</button>
-          <button className="btn" onClick={() => fileRef.current && fileRef.current.click()}>{t("set.import")}</button>
-          <input ref={fileRef} type="file" accept="application/json,.json"
-            style={{ display: "none" }} onChange={pickFile} />
+          {!isDemo && (
+            <>
+              <button className="btn" onClick={() => fileRef.current && fileRef.current.click()}>{t("set.import")}</button>
+              <input ref={fileRef} type="file" accept="application/json,.json"
+                style={{ display: "none" }} onChange={pickFile} />
+            </>
+          )}
         </div>
         {importError && <p className="panel-error">{importError}</p>}
-        <p className="panel-note">{t("set.importNote")}</p>
+        {!isDemo && <p className="panel-note">{t("set.importNote")}</p>}
       </section>
 
       <section className="panel">
@@ -121,9 +125,12 @@ export function SettingsView({ profile, setProfile, lang, setLang, backendLabel,
         {saveStatus.state === "error" && (
           <p className="panel-error">{t("set.lastFailed", { msg: saveStatus.message })}</p>
         )}
-        <div className="panel-actions">
-          <button className="btn danger" onClick={onReset}>{t("set.erase")}</button>
-        </div>
+        {/* Demo visitors share sample data, so the destructive actions stay hidden */}
+        {!isDemo && (
+          <div className="panel-actions">
+            <button className="btn danger" onClick={onReset}>{t("set.erase")}</button>
+          </div>
+        )}
       </section>
 
       <section className="panel">
@@ -137,7 +144,7 @@ export function SettingsView({ profile, setProfile, lang, setLang, backendLabel,
   );
 }
 
-export function Onboarding({ onChoose }) {
+export function Onboarding({ onChoose, isDemo }) {
   const { t } = useI18n();
   const [name, setName] = useState("");
   return (
@@ -152,7 +159,7 @@ export function Onboarding({ onChoose }) {
         </Field>
         <div className="onboard-actions">
           <button className="btn primary" onClick={() => onChoose("empty", name.trim())}>{t("onb.empty")}</button>
-          <button className="btn" onClick={() => onChoose("demo", name.trim())}>{t("onb.example")}</button>
+          {!isDemo && <button className="btn" onClick={() => onChoose("demo", name.trim())}>{t("onb.example")}</button>}
         </div>
         <p className="onboard-note">{t("onb.note")}</p>
       </div>

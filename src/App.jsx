@@ -65,6 +65,7 @@ import { SettingsView, Onboarding } from "./views/SettingsView.jsx";
 import "./styles/momentum.css";
 
 import { get, post, put, del } from "./lib/api";
+import { hasActiveDemo } from "./lib/auth";
 import { useI18n } from "./lib/i18n.js";
 import { consumeLaunchIntent } from "./lib/launch.js";
 
@@ -468,7 +469,7 @@ export default function App({ onLogout }) {
   if (!profile.onboarded) {
     return (
       <div className="momentum" data-theme={theme}>
-        <Onboarding onChoose={chooseStart} />
+        <Onboarding onChoose={chooseStart} isDemo={hasActiveDemo()} />
       </div>
     );
   }
@@ -599,6 +600,7 @@ export default function App({ onLogout }) {
             onExport={exportData}
             onImport={askImport}
             onLogout={onLogout}
+            isDemo={hasActiveDemo()}
           />
         )}
       </main>
